@@ -22,6 +22,7 @@ import { devicesActions } from '../store';
 import {
   formatAlarm,
   formatBoolean,
+  formatSpeed,
   formatPercentage,
   formatStatus,
   getStatusColor,
@@ -34,6 +35,7 @@ import { useAttributePreference } from '../common/util/preferences';
 import GeofencesValue from '../common/components/GeofencesValue';
 import DriverValue from '../common/components/DriverValue';
 import MotionBar from './components/MotionBar';
+import SpeedIndicator from './SpeedIndicator';
 
 dayjs.extend(relativeTime);
 
@@ -76,6 +78,7 @@ const DeviceRow = ({ devices, index, style }) => {
   const item = devices[index];
   const position = useSelector((state) => state.session.positions[item.id]);
 
+  const speedUnit = useAttributePreference('speedUnit');
   const devicePrimary = useAttributePreference('devicePrimary', 'name');
   const deviceSecondary = useAttributePreference('deviceSecondary', '');
 
@@ -152,6 +155,13 @@ const DeviceRow = ({ devices, index, style }) => {
                 </IconButton>
               </Tooltip>
             )}
+            {
+              <Tooltip
+                title={`${t('positionSpeed')}: ${formatSpeed(position.speed, speedUnit, t)}`}
+              >
+                <IconButton size="small">{<SpeedIndicator speed={position.speed} />}</IconButton>
+              </Tooltip>
+            }
             {position.attributes.hasOwnProperty('ignition') && (
               <Tooltip
                 title={`${t('positionIgnition')}: ${formatBoolean(position.attributes.ignition, t)}`}
