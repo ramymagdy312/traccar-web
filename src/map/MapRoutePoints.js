@@ -10,6 +10,38 @@ import { useAttributePreference } from '../common/util/preferences';
 import { usePreference } from '../common/util/preferences';
 import { formatAddress, formatTime } from '../common/util/formatter';
 
+const generateStopIcon = (number) => {
+  const size = 36;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.shadowColor = 'rgba(211,47,47,0.35)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
+
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
+  ctx.fillStyle = '#d32f2f';
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${number > 9 ? 13 : 15}px Inter, Roboto, Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(number), size / 2, size / 2 + 0.5);
+
+  return ctx.getImageData(0, 0, size, size);
+};
+
 const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
   const id = useId();
   const movingId = `${id}-moving`;
@@ -21,7 +53,9 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
   const speedUnit = useAttributePreference('speedUnit');
   const coordinateFormat = usePreference('coordinateFormat');
   const positionsRef = useRef(positions);
+  const stopsRef = useRef([]);
   const popupRef = useRef();
+  const addedImagesRef = useRef([]);
 
   useEffect(() => {
     positionsRef.current = positions;
@@ -32,49 +66,55 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
 
   const showPopup = useCallback(
     (feature) => {
-      const index = feature.properties.index;
+      const stopNumber = feature.properties.stopNumber;
+      const stopIdx = stopNumber - 1;
+      const stops = stopsRef.current;
+      const stop = stops[stopIdx];
+      if (!stop) return;
+
       const positions = positionsRef.current;
-      const position = positions[index];
-      if (!position) {
-        return;
-      }
+      const position = positions[stop.startIdx];
+      if (!position) return;
 
-      const isParked = (p) => p?.attributes?.motion === false || p?.speed === 0;
-
-      let start = index;
-      while (start > 0 && isParked(positions[start - 1])) {
-        start -= 1;
-      }
-      let end = index;
-      while (end < positions.length - 1 && isParked(positions[end + 1])) {
-        end += 1;
-      }
-
-      const startTime = positions[start]?.fixTime;
-      const endTime = positions[end]?.fixTime;
-      const durationMs =
-        startTime && endTime ? Math.max(0, new Date(endTime) - new Date(startTime)) : 0;
-
-      const durationSeconds = Math.floor(durationMs / 1000);
+      const durationSeconds = Math.floor(stop.durationMs / 1000);
       const hh = String(Math.floor(durationSeconds / 3600)).padStart(2, '0');
       const mm = String(Math.floor((durationSeconds % 3600) / 60)).padStart(2, '0');
       const ss = String(durationSeconds % 60).padStart(2, '0');
       const duration = `${hh}:${mm}:${ss}`;
 
       const address = formatAddress(position, coordinateFormat);
-      const time = formatTime(position.fixTime, 'seconds');
+      const startTimeStr = formatTime(positions[stop.startIdx]?.fixTime, 'seconds');
+      const endTimeStr = formatTime(positions[stop.endIdx]?.fixTime, 'seconds');
 
       const html = `
-        <div style="font-family: Roboto, Arial, sans-serif; font-size: 12px; line-height: 1.35;">
-          <div style="font-weight: 600; margin-bottom: 6px;">${t('reportStop')}</div>
-          <div><b>${t('reportDuration')}:</b> ${duration}</div>
-          <div style="margin-top: 6px;"><b>${t('positionAddress')}:</b> ${address}</div>
-          <div style="margin-top: 6px;"><b>${t('positionFixTime')}:</b> ${time}</div>
+        <div style="font-family: 'Inter', Roboto, Arial, sans-serif; font-size: 12px; line-height: 1.5; min-width: 180px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,0.08);">
+            <div style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #d32f2f, #f44336); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;">${stopNumber}</div>
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: #d32f2f;">${t('reportStops')} #${stopNumber}</div>
+            </div>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 3px 0;">
+            <span style="color: #666;">&#9202; ${t('reportDuration')}:</span>
+            <b>${duration}</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 3px 0;">
+            <span style="color: #666;">&#9200; ${t('reportStartTime')}:</span>
+            <b>${startTimeStr}</b>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding: 3px 0;">
+            <span style="color: #666;">&#9201; ${t('reportEndTime')}:</span>
+            <b>${endTimeStr}</b>
+          </div>
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(0,0,0,0.08);">
+            <div style="color: #666; margin-bottom: 2px;">&#128205; ${t('positionAddress')}:</div>
+            <div style="font-weight: 500;">${address}</div>
+          </div>
         </div>
       `;
 
       popupRef.current?.remove();
-      popupRef.current = new maplibregl.Popup({ closeButton: true, closeOnClick: true })
+      popupRef.current = new maplibregl.Popup({ closeButton: true, closeOnClick: true, maxWidth: '280px' })
         .setLngLat(feature.geometry.coordinates)
         .setHTML(html)
         .addTo(map);
@@ -121,17 +161,14 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
   useEffect(() => {
     map.addSource(id, {
       type: 'geojson',
-      data: {
-        type: 'FeatureCollection',
-        features: [],
-      },
+      data: { type: 'FeatureCollection', features: [] },
     });
 
     map.addLayer({
       id: movingId,
       type: 'symbol',
       source: id,
-      filter: ['!=', ['get', 'parked'], true],
+      filter: ['all', ['!=', ['get', 'parked'], true], ['!=', ['get', 'stopMarker'], true]],
       paint: {
         'text-color': ['get', 'color'],
       },
@@ -148,10 +185,10 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
       id: parkedId,
       type: 'symbol',
       source: id,
-      filter: ['==', ['get', 'parkedIcon'], true],
+      filter: ['==', ['get', 'stopMarker'], true],
       layout: {
-        'icon-image': 'park-neutral',
-        'icon-size': 0.9,
+        'icon-image': ['get', 'stopImageId'],
+        'icon-size': 1,
         'icon-allow-overlap': true,
       },
     });
@@ -180,7 +217,8 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
       },
     });
 
-    [movingId, parkedId, startId, endId].forEach((layerId) => {
+    const allLayers = [movingId, parkedId, startId, endId];
+    allLayers.forEach((layerId) => {
       map.on('mouseenter', layerId, onMouseEnter);
       map.on('mouseleave', layerId, onMouseLeave);
     });
@@ -198,7 +236,7 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
       map.off('click', startId, onEndpointClick);
       map.off('click', endId, onEndpointClick);
 
-      [movingId, parkedId, startId, endId].forEach((layerId) => {
+      allLayers.forEach((layerId) => {
         map.off('mouseenter', layerId, onMouseEnter);
         map.off('mouseleave', layerId, onMouseLeave);
         if (map.getLayer(layerId)) {
@@ -209,6 +247,11 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
       if (map.getSource(id)) {
         map.removeSource(id);
       }
+
+      addedImagesRef.current.forEach((imgId) => {
+        if (map.hasImage(imgId)) map.removeImage(imgId);
+      });
+      addedImagesRef.current = [];
     };
   }, [onMovingClick, onParkedClick, onEndpointClick]);
 
@@ -221,55 +264,72 @@ const MapRoutePoints = ({ positions, onClick, showSpeedControl }) => {
       map.addControl(control, theme.direction === 'rtl' ? 'bottom-right' : 'bottom-left');
     }
 
+    addedImagesRef.current.forEach((imgId) => {
+      if (map.hasImage(imgId)) map.removeImage(imgId);
+    });
+    addedImagesRef.current = [];
+
+    const isParked = (p) => p?.attributes?.motion === false || p?.speed === 0;
+    const stops = [];
+    const stopMarkerIdx = new Set();
+    const stopNumberMap = {};
+
+    let i = 0;
+    while (i < positions.length) {
+      if (!isParked(positions[i])) {
+        i += 1;
+        continue;
+      }
+
+      const startIdx = i;
+      while (i < positions.length && isParked(positions[i])) {
+        i += 1;
+      }
+      const endIdx = i - 1;
+
+      const startTime = positions[startIdx]?.fixTime;
+      const endTime = positions[endIdx]?.fixTime;
+      const durationMs =
+        startTime && endTime ? Math.max(0, new Date(endTime) - new Date(startTime)) : 0;
+
+      if (durationMs >= 60 * 1000) {
+        const stopNum = stops.length + 1;
+        stops.push({ startIdx, endIdx, durationMs, number: stopNum });
+        stopMarkerIdx.add(startIdx);
+        stopNumberMap[startIdx] = stopNum;
+
+        const imageId = `stop-icon-${stopNum}`;
+        if (!map.hasImage(imageId)) {
+          const icon = generateStopIcon(stopNum);
+          map.addImage(imageId, icon);
+          addedImagesRef.current.push(imageId);
+        }
+      }
+    }
+
+    stopsRef.current = stops;
+
     map.getSource(id)?.setData({
       type: 'FeatureCollection',
-      features: (() => {
-        const isParked = (p) => p?.attributes?.motion === false || p?.speed === 0;
-        const parkedIcon = new Array(positions.length).fill(false);
-
-        let i = 0;
-        while (i < positions.length) {
-          if (!isParked(positions[i])) {
-            i += 1;
-            continue;
-          }
-
-          const start = i;
-          while (i < positions.length && isParked(positions[i])) {
-            i += 1;
-          }
-          const end = i - 1;
-
-          const startTime = positions[start]?.fixTime;
-          const endTime = positions[end]?.fixTime;
-          const durationMs =
-            startTime && endTime ? Math.max(0, new Date(endTime) - new Date(startTime)) : 0;
-
-          if (durationMs >= 60 * 1000) {
-            for (let j = start; j <= end; j += 1) {
-              parkedIcon[j] = true;
-            }
-          }
-        }
-
-        return positions.map((position, index) => ({
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [position.longitude, position.latitude],
-          },
-          properties: {
-            index,
-            id: position.id,
-            rotation: position.course,
-            parked: isParked(position),
-            parkedIcon: parkedIcon[index],
-            start: index === 0,
-            end: index === positions.length - 1,
-            color: getSpeedColor(position.speed, minSpeed, maxSpeed),
-          },
-        }));
-      })(),
+      features: positions.map((position, index) => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [position.longitude, position.latitude],
+        },
+        properties: {
+          index,
+          id: position.id,
+          rotation: position.course,
+          parked: isParked(position),
+          stopMarker: stopMarkerIdx.has(index),
+          stopNumber: stopNumberMap[index] || 0,
+          stopImageId: stopNumberMap[index] ? `stop-icon-${stopNumberMap[index]}` : '',
+          start: index === 0,
+          end: index === positions.length - 1,
+          color: getSpeedColor(position.speed, minSpeed, maxSpeed),
+        },
+      })),
     });
     return () => map.removeControl(control);
   }, [positions, showSpeedControl, speedUnit, t]);

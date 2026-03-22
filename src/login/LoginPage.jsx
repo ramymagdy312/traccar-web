@@ -50,7 +50,7 @@ const useStyles = makeStyles()((theme) => ({
   container: {
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing(2),
+    gap: theme.spacing(2.5),
   },
   extraContainer: {
     display: 'flex',

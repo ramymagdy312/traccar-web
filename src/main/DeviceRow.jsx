@@ -63,7 +63,10 @@ const useStyles = makeStyles()((theme) => ({
     color: theme.palette.neutral.main,
   },
   selected: {
-    backgroundColor: theme.palette.action.selected,
+    backgroundColor: theme.palette.mode === 'dark'
+      ? 'rgba(92,158,255,0.12) !important'
+      : 'rgba(21,101,192,0.08) !important',
+    borderLeft: `3px solid ${theme.palette.primary.main}`,
   },
 }));
 

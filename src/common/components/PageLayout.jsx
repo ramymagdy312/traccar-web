@@ -22,6 +22,7 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
   root: {
     height: '100%',
     display: 'flex',
+    background: theme.palette.background.default,
     [theme.breakpoints.down('md')]: {
       flexDirection: 'column',
     },
@@ -34,6 +35,12 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
     }),
     '@media print': {
       display: 'none',
+    },
+    '& .MuiDrawer-paper': {
+      borderRight: `1px solid ${theme.palette.divider}`,
+      background: theme.palette.mode === 'dark'
+        ? 'linear-gradient(180deg, #1a2634 0%, #0f1924 100%)'
+        : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
     },
   },
   mobileDrawer: {

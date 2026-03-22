@@ -23,6 +23,7 @@ import { makeStyles } from 'tss-react/mui';
 import { useTheme } from '@mui/material/styles';
 import MapIcon from '@mui/icons-material/Map';
 import DnsIcon from '@mui/icons-material/Dns';
+import DashboardIcon from '@mui/icons-material/Dashboard';
 import AddIcon from '@mui/icons-material/Add';
 import TuneIcon from '@mui/icons-material/Tune';
 import { useTranslation } from '../common/components/LocalizationProvider';
@@ -33,6 +34,10 @@ const useStyles = makeStyles()((theme) => ({
   toolbar: {
     display: 'flex',
     gap: theme.spacing(1),
+    padding: theme.spacing(1, 1.5),
+    background: theme.palette.mode === 'dark'
+      ? 'linear-gradient(135deg, #1a2634 0%, #1e3044 100%)'
+      : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
   },
   filterPanel: {
     display: 'flex',
@@ -55,6 +60,8 @@ const MainToolbar = ({
   setFilterSort,
   filterMap,
   setFilterMap,
+  dashboardOpen,
+  setDashboardOpen,
 }) => {
   const { classes } = useStyles();
   const theme = useTheme();
@@ -192,6 +199,19 @@ const MainToolbar = ({
           </FormGroup>
         </div>
       </Popover>
+      <Tooltip title="Dashboard">
+        <IconButton
+          onClick={() => {
+            setDashboardOpen(!dashboardOpen);
+            if (!dashboardOpen) setDevicesOpen(true);
+          }}
+          sx={(theme) => ({
+            color: dashboardOpen ? theme.palette.primary.main : 'inherit',
+          })}
+        >
+          <DashboardIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <IconButton edge="end" onClick={() => navigate('/settings/device')} disabled={deviceReadonly}>
         <Tooltip
           open={!deviceReadonly && Object.keys(devices).length === 0}

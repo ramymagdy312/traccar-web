@@ -41,6 +41,11 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
   card: {
     pointerEvents: 'auto',
     width: theme.dimensions.popupMaxWidth,
+    borderRadius: '16px',
+    boxShadow: theme.palette.mode === 'dark'
+      ? '0 8px 32px rgba(0,0,0,0.4)'
+      : '0 8px 32px rgba(0,0,0,0.12)',
+    overflow: 'hidden',
   },
   media: {
     height: theme.dimensions.popupImageHeight,

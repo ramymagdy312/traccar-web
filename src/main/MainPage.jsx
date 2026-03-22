@@ -5,6 +5,7 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useDispatch, useSelector } from 'react-redux';
 import DeviceList from './DeviceList';
+import Dashboard from './Dashboard';
 import BottomMenu from '../common/components/BottomMenu';
 import StatusCard from '../common/components/StatusCard';
 import { devicesActions } from '../store';
@@ -40,10 +41,14 @@ const useStyles = makeStyles()((theme) => ({
   header: {
     pointerEvents: 'auto',
     zIndex: 6,
+    borderRadius: '12px 12px 0 0',
+    overflow: 'hidden',
   },
   footer: {
     pointerEvents: 'auto',
     zIndex: 5,
+    borderRadius: '0 0 12px 12px',
+    overflow: 'hidden',
   },
   middle: {
     flex: 1,
@@ -60,6 +65,7 @@ const useStyles = makeStyles()((theme) => ({
     zIndex: 4,
     display: 'flex',
     minHeight: 0,
+    width: '100%',
   },
 }));
 
@@ -90,6 +96,7 @@ const MainPage = () => {
   const [filterMap, setFilterMap] = usePersistedState('filterMap', false);
 
   const [devicesOpen, setDevicesOpen] = useState(desktop);
+  const [dashboardOpen, setDashboardOpen] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
 
   const onEventsClick = useCallback(() => setEventsOpen(true), [setEventsOpen]);
@@ -133,6 +140,8 @@ const MainPage = () => {
             setFilterSort={setFilterSort}
             filterMap={filterMap}
             setFilterMap={setFilterMap}
+            dashboardOpen={dashboardOpen}
+            setDashboardOpen={setDashboardOpen}
           />
         </Paper>
         <div className={classes.middle}>
@@ -150,7 +159,7 @@ const MainPage = () => {
             className={classes.contentList}
             style={devicesOpen ? {} : { visibility: 'hidden' }}
           >
-            <DeviceList devices={filteredDevices} />
+            {dashboardOpen ? <Dashboard /> : <DeviceList devices={filteredDevices} />}
           </Paper>
         </div>
         {desktop && (
