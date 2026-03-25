@@ -4,14 +4,11 @@ import { makeStyles } from 'tss-react/mui';
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useDispatch, useSelector } from 'react-redux';
-import DeviceList from './DeviceList';
 import Dashboard from './Dashboard';
 import BottomMenu from '../common/components/BottomMenu';
 import StatusCard from '../common/components/StatusCard';
 import { devicesActions } from '../store';
-import usePersistedState from '../common/util/usePersistedState';
 import EventsDrawer from './EventsDrawer';
-import useFilter from './useFilter';
 import MainToolbar from './MainToolbar';
 import MainMap from './MainMap';
 import { useAttributePreference } from '../common/util/preferences';
@@ -80,23 +77,19 @@ const MainPage = () => {
 
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
   const positions = useSelector((state) => state.session.positions);
-  const [filteredPositions, setFilteredPositions] = useState([]);
-  const selectedPosition = filteredPositions.find(
+  const [mapFilterIds, setMapFilterIds] = useState(null);
+
+  const allPositions = Object.values(positions);
+  const filteredPositions = selectedDeviceId
+    ? allPositions.filter((p) => p.deviceId === selectedDeviceId)
+    : mapFilterIds
+      ? allPositions.filter((p) => mapFilterIds.has(p.deviceId))
+      : allPositions;
+  const selectedPosition = allPositions.find(
     (position) => selectedDeviceId && position.deviceId === selectedDeviceId,
   );
 
-  const [filteredDevices, setFilteredDevices] = useState([]);
-
-  const [keyword, setKeyword] = useState('');
-  const [filter, setFilter] = usePersistedState('filter', {
-    statuses: [],
-    groups: [],
-  });
-  const [filterSort, setFilterSort] = usePersistedState('filterSort', '');
-  const [filterMap, setFilterMap] = usePersistedState('filterMap', false);
-
   const [devicesOpen, setDevicesOpen] = useState(desktop);
-  const [dashboardOpen, setDashboardOpen] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
 
   const onEventsClick = useCallback(() => setEventsOpen(true), [setEventsOpen]);
@@ -106,16 +99,6 @@ const MainPage = () => {
       setDevicesOpen(false);
     }
   }, [desktop, mapOnSelect, selectedDeviceId]);
-
-  useFilter(
-    keyword,
-    filter,
-    filterSort,
-    filterMap,
-    positions,
-    setFilteredDevices,
-    setFilteredPositions,
-  );
 
   return (
     <div className={classes.root}>
@@ -129,19 +112,8 @@ const MainPage = () => {
       <div className={classes.sidebar}>
         <Paper square elevation={3} className={classes.header}>
           <MainToolbar
-            filteredDevices={filteredDevices}
             devicesOpen={devicesOpen}
             setDevicesOpen={setDevicesOpen}
-            keyword={keyword}
-            setKeyword={setKeyword}
-            filter={filter}
-            setFilter={setFilter}
-            filterSort={filterSort}
-            setFilterSort={setFilterSort}
-            filterMap={filterMap}
-            setFilterMap={setFilterMap}
-            dashboardOpen={dashboardOpen}
-            setDashboardOpen={setDashboardOpen}
           />
         </Paper>
         <div className={classes.middle}>
@@ -159,7 +131,7 @@ const MainPage = () => {
             className={classes.contentList}
             style={devicesOpen ? {} : { visibility: 'hidden' }}
           >
-            {dashboardOpen ? <Dashboard /> : <DeviceList devices={filteredDevices} />}
+            <Dashboard onFilterMap={setMapFilterIds} />
           </Paper>
         </div>
         {desktop && (

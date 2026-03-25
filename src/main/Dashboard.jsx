@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -7,6 +7,8 @@ import {
   LinearProgress,
   IconButton,
   Tooltip,
+  InputBase,
+  Chip,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
@@ -14,7 +16,6 @@ import SignalWifiOffIcon from '@mui/icons-material/SignalWifiOff';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import SpeedIcon from '@mui/icons-material/Speed';
 import LocalParkingIcon from '@mui/icons-material/LocalParking';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
 import BatteryAlertIcon from '@mui/icons-material/BatteryAlert';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -26,6 +27,11 @@ import BatteryFullIcon from '@mui/icons-material/BatteryFull';
 import Battery20Icon from '@mui/icons-material/Battery20';
 import PlaceIcon from '@mui/icons-material/Place';
 import NearMeIcon from '@mui/icons-material/NearMe';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled';
+import SearchIcon from '@mui/icons-material/Search';
+import SortByAlphaIcon from '@mui/icons-material/SortByAlpha';
+import ScheduleIcon from '@mui/icons-material/Schedule';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from '../common/components/LocalizationProvider';
@@ -133,34 +139,6 @@ const useStyles = makeStyles()((theme) => ({
     height: 7,
     borderRadius: 4,
   },
-  eventRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing(1),
-    padding: theme.spacing(0.5, 0),
-    borderBottom: `1px solid ${theme.palette.divider}`,
-    '&:last-child': { borderBottom: 'none' },
-  },
-  eventDot: {
-    width: 8,
-    height: 8,
-    borderRadius: '50%',
-    flexShrink: 0,
-  },
-  eventText: {
-    fontSize: '0.7rem',
-    color: theme.palette.text.secondary,
-    flex: 1,
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-  },
-  eventTime: {
-    fontSize: '0.65rem',
-    color: theme.palette.text.secondary,
-    opacity: 0.7,
-    flexShrink: 0,
-  },
   speedGrid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
@@ -241,18 +219,6 @@ const useStyles = makeStyles()((theme) => ({
   },
 }));
 
-const eventColors = {
-  deviceOnline: '#2e7d32',
-  deviceOffline: '#d32f2f',
-  deviceMoving: '#1565c0',
-  deviceStopped: '#ed6c02',
-  alarm: '#d32f2f',
-  geofenceEnter: '#00897b',
-  geofenceExit: '#7b1fa2',
-  ignitionOn: '#2e7d32',
-  ignitionOff: '#757575',
-  default: '#9e9e9e',
-};
 
 const DonutChart = ({ data, size = 80, strokeWidth = 10 }) => {
   const radius = (size - strokeWidth) / 2;
@@ -292,7 +258,7 @@ const DonutChart = ({ data, size = 80, strokeWidth = 10 }) => {
   );
 };
 
-const Dashboard = () => {
+const Dashboard = ({ onFilterMap }) => {
   const { classes } = useStyles();
   const t = useTranslation();
   const navigate = useNavigate();
@@ -302,7 +268,6 @@ const Dashboard = () => {
 
   const devices = useSelector((state) => state.devices.items);
   const positions = useSelector((state) => state.session.positions);
-  const events = useSelector((state) => state.events.items);
   const groups = useSelector((state) => state.groups.items);
   const geofences = useSelector((state) => state.geofences.items);
 
@@ -310,13 +275,28 @@ const Dashboard = () => {
     const devList = Object.values(devices);
     const posList = Object.values(positions);
 
-    const online = devList.filter((d) => d.status === 'online').length;
-    const offline = devList.filter((d) => d.status === 'offline').length;
-    const unknown = devList.filter((d) => d.status === 'unknown').length;
+    const onlineDevices = devList.filter((d) => d.status === 'online');
+    const offlineDevices = devList.filter((d) => d.status === 'offline')
+      .sort((a, b) => new Date(a.lastUpdate || 0) - new Date(b.lastUpdate || 0));
+    const unknownDevices = devList.filter((d) => d.status === 'unknown')
+      .sort((a, b) => new Date(a.lastUpdate || 0) - new Date(b.lastUpdate || 0));
+    const online = onlineDevices.length;
+    const offline = offlineDevices.length;
+    const unknown = unknownDevices.length;
     const total = devList.length;
 
-    const moving = posList.filter((p) => p.attributes?.motion || p.speed > 0).length;
+    const movingPositions = posList.filter((p) => p.attributes?.motion || p.speed > 0);
+    const movingDeviceIds = new Set(movingPositions.map((p) => p.deviceId));
+    const moving = movingDeviceIds.size;
     const parked = total - moving;
+
+    const movingDevicesList = devList.filter((d) => movingDeviceIds.has(d.id));
+    const parkedDevicesList = devList.filter((d) => !movingDeviceIds.has(d.id));
+
+    const ignitionOnIds = new Set(
+      posList.filter((p) => p.attributes?.ignition === true).map((p) => p.deviceId),
+    );
+    const ignitionOnDevicesList = devList.filter((d) => ignitionOnIds.has(d.id));
 
     const speeds = posList.map((p) => p.speed || 0);
     const maxSpeed = speeds.length ? Math.max(...speeds) : 0;
@@ -329,18 +309,24 @@ const Dashboard = () => {
       (p) => p.attributes?.batteryLevel !== undefined && p.attributes.batteryLevel <= 20,
     ).length;
 
-    const ignitionOn = posList.filter((p) => p.attributes?.ignition === true).length;
+    const ignitionOn = ignitionOnIds.size;
 
     const groupCounts = {};
+    const groupDevices = {};
     devList.forEach((d) => {
       const gName = d.groupId && groups[d.groupId] ? groups[d.groupId].name : t('groupNoGroup');
       groupCounts[gName] = (groupCounts[gName] || 0) + 1;
+      if (!groupDevices[gName]) groupDevices[gName] = [];
+      groupDevices[gName].push(d);
     });
 
     const categoryCounts = {};
+    const categoryDevices = {};
     devList.forEach((d) => {
       const cat = d.category || 'default';
       categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+      if (!categoryDevices[cat]) categoryDevices[cat] = [];
+      categoryDevices[cat].push(d);
     });
 
     const topSpeed = devList
@@ -396,36 +382,41 @@ const Dashboard = () => {
     });
     const devicesOutsideGeofences = total - devicesInAnyGeofence.size;
 
+    const outsideGeofenceDevicesList = devList.filter((d) => !devicesInAnyGeofence.has(d.id));
+    const insideGeofenceDevicesList = devList.filter((d) => devicesInAnyGeofence.has(d.id));
+
     return {
       online, offline, unknown, total,
       moving, parked, ignitionOn,
       maxSpeed, avgMovingSpeed,
       lowBattery,
-      groupCounts, categoryCounts,
+      groupCounts, groupDevices, categoryCounts, categoryDevices,
       topSpeed, lowBatteryDevices, staleDevices,
       geofenceStats, devicesInAnyGeofence: devicesInAnyGeofence.size, devicesOutsideGeofences,
+      onlineDevices, offlineDevices, unknownDevices,
+      movingDevicesList, parkedDevicesList, ignitionOnDevicesList,
+      outsideGeofenceDevicesList, insideGeofenceDevicesList,
     };
   }, [devices, positions, groups, geofences, t]);
 
-  const recentEvents = useMemo(() => events.slice(0, 8), [events]);
 
   const statusCards = [
     {
-      count: stats.online, label: t('deviceStatusOnline'),
+      count: stats.online, label: t('deviceStatusOnline'), filterKey: 'online',
       icon: <GpsFixedIcon sx={{ fontSize: 20 }} />,
       bg: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
       bgDark: 'linear-gradient(135deg, #1b3a1f 0%, #2e5232 100%)',
       iconBg: '#2e7d32', color: '#2e7d32',
     },
     {
-      count: stats.offline, label: t('deviceStatusOffline'),
+      count: stats.offline, label: t('deviceStatusOffline'), filterKey: 'offline',
       icon: <SignalWifiOffIcon sx={{ fontSize: 20 }} />,
       bg: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)',
       bgDark: 'linear-gradient(135deg, #3a1b1b 0%, #52302e 100%)',
       iconBg: '#d32f2f', color: '#d32f2f',
     },
     {
-      count: stats.unknown, label: t('deviceStatusUnknown'),
+      count: stats.unknown, label: t('deviceStatusUnknown'), filterKey: 'unknown',
       icon: <HelpOutlineIcon sx={{ fontSize: 20 }} />,
       bg: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
       bgDark: 'linear-gradient(135deg, #3a2e1b 0%, #524632 100%)',
@@ -435,21 +426,21 @@ const Dashboard = () => {
 
   const activityCards = [
     {
-      count: stats.moving, label: t('positionMotion'),
+      count: stats.moving, label: t('positionMotion'), filterKey: 'moving',
       icon: <SpeedIcon sx={{ fontSize: 20 }} />,
       bg: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
       bgDark: 'linear-gradient(135deg, #1a2a3a 0%, #2a4060 100%)',
       iconBg: '#1565c0', color: '#1565c0',
     },
     {
-      count: stats.parked, label: t('reportStops'),
+      count: stats.parked, label: t('reportStops'), filterKey: 'parked',
       icon: <LocalParkingIcon sx={{ fontSize: 20 }} />,
       bg: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)',
       bgDark: 'linear-gradient(135deg, #2a1a3a 0%, #3d2a52 100%)',
       iconBg: '#7b1fa2', color: '#7b1fa2',
     },
     {
-      count: stats.ignitionOn, label: t('positionIgnition'),
+      count: stats.ignitionOn, label: t('positionIgnition'), filterKey: 'ignition',
       icon: <PowerSettingsNewIcon sx={{ fontSize: 20 }} />,
       bg: 'linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%)',
       bgDark: 'linear-gradient(135deg, #1a3a36 0%, #2a524e 100%)',
@@ -457,13 +448,14 @@ const Dashboard = () => {
     },
   ];
 
-  const formatEventTime = (time) => {
-    if (!time) return '';
-    return new Date(time).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  };
 
-  const sortedGroups = Object.entries(stats.groupCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const sortedCategories = Object.entries(stats.categoryCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const sortedGroups = Object.entries(stats.groupCounts).sort((a, b) => b[1] - a[1]);
+  const sortedCategories = Object.entries(stats.categoryCounts).sort((a, b) => b[1] - a[1]);
+
+  const [drillDown, setDrillDown] = useState(null);
+  const [drillSearch, setDrillSearch] = useState('');
+  const [drillFilter, setDrillFilter] = useState('all');
+  const [drillSort, setDrillSort] = useState('name');
 
   const donutData = [
     { label: t('deviceStatusOnline'), value: stats.online, color: '#2e7d32' },
@@ -471,12 +463,56 @@ const Dashboard = () => {
     { label: t('deviceStatusUnknown'), value: stats.unknown, color: '#ed6c02' },
   ];
 
+  const allDevicesList = useMemo(() => Object.values(devices), [devices]);
+
+  const drillDownLists = {
+    all: allDevicesList,
+    online: stats.onlineDevices,
+    offline: stats.offlineDevices,
+    unknown: stats.unknownDevices,
+    moving: stats.movingDevicesList,
+    parked: stats.parkedDevicesList,
+    ignition: stats.ignitionOnDevicesList,
+    insideGeofence: stats.insideGeofenceDevicesList,
+    outsideGeofence: stats.outsideGeofenceDevicesList,
+  };
+
+  const openDrillDown = (filterKey, label, color) => {
+    setDrillSearch('');
+    setDrillFilter('all');
+    setDrillSort('name');
+    setDrillDown({ filterKey, label, color });
+  };
+
+  const drillDownDeviceIds = useMemo(() => {
+    if (!drillDown) return null;
+    let base;
+    if (drillDown.filterKey.startsWith('geofence-')) {
+      base = (stats.geofenceStats.find((g) => `geofence-${g.id}` === drillDown.filterKey)?.deviceIds || [])
+        .map((dId) => devices[dId]).filter(Boolean);
+    } else if (drillDown.filterKey.startsWith('group-')) {
+      base = stats.groupDevices[drillDown.filterKey.slice(6)] || [];
+    } else if (drillDown.filterKey.startsWith('category-')) {
+      base = stats.categoryDevices[drillDown.filterKey.slice(9)] || [];
+    } else {
+      base = drillDownLists[drillDown.filterKey] || [];
+    }
+    return new Set(base.map((d) => d.id));
+  }, [drillDown, stats, devices, drillDownLists]);
+
+  useEffect(() => {
+    if (onFilterMap) {
+      onFilterMap(drillDownDeviceIds);
+    }
+  }, [drillDownDeviceIds, onFilterMap]);
+
   const renderCardRow = (cards) => (
     <div className={classes.statusRow}>
       {cards.map((card) => (
         <Box
           key={card.label}
           className={classes.statusCard}
+          onClick={() => openDrillDown(card.filterKey, card.label, card.color)}
           sx={(theme) => ({
             background: theme.palette.mode === 'dark' ? card.bgDark : card.bg,
           })}
@@ -495,10 +531,202 @@ const Dashboard = () => {
 
   const selectDevice = (id) => dispatch(devicesActions.selectId(id));
 
+  if (drillDown) {
+    let baseList;
+    if (drillDown.filterKey.startsWith('geofence-')) {
+      baseList = (stats.geofenceStats.find((g) => `geofence-${g.id}` === drillDown.filterKey)?.deviceIds || [])
+        .map((dId) => devices[dId]).filter(Boolean);
+    } else if (drillDown.filterKey.startsWith('group-')) {
+      const groupName = drillDown.filterKey.slice(6);
+      baseList = stats.groupDevices[groupName] || [];
+    } else if (drillDown.filterKey.startsWith('category-')) {
+      const catName = drillDown.filterKey.slice(9);
+      baseList = stats.categoryDevices[catName] || [];
+    } else {
+      baseList = drillDownLists[drillDown.filterKey] || [];
+    }
+
+    const subFilterFn = (d) => {
+      if (drillFilter === 'all') return true;
+      if (drillFilter === 'moving') return positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0;
+      if (drillFilter === 'stopped') return !(positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0);
+      if (drillFilter === 'online') return d.status === 'online';
+      if (drillFilter === 'offline') return d.status === 'offline';
+      if (drillFilter === 'unknown') return d.status === 'unknown';
+      return true;
+    };
+
+    const fullList = baseList.filter(subFilterFn);
+
+    const searchLower = drillSearch.trim().toLowerCase();
+    const filtered = searchLower
+      ? fullList.filter((d) =>
+        d.name?.toLowerCase().includes(searchLower)
+        || d.uniqueId?.toLowerCase().includes(searchLower)
+        || d.phone?.toLowerCase().includes(searchLower))
+      : fullList;
+
+    const list = [...filtered].sort((a, b) => {
+      if (drillSort === 'name') return (a.name || '').localeCompare(b.name || '');
+      if (drillSort === 'lastUpdate') return new Date(b.lastUpdate || 0) - new Date(a.lastUpdate || 0);
+      return 0;
+    });
+
+    const filterChips = [
+      { key: 'all', label: 'All', count: baseList.length, color: '#1565c0' },
+      { key: 'moving', label: t('positionMotion'), count: baseList.filter((d) => positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0).length, color: '#1565c0' },
+      { key: 'stopped', label: t('reportStops'), count: baseList.filter((d) => !(positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0)).length, color: '#7b1fa2' },
+      { key: 'online', label: t('deviceStatusOnline'), count: baseList.filter((d) => d.status === 'online').length, color: '#2e7d32' },
+      { key: 'offline', label: t('deviceStatusOffline'), count: baseList.filter((d) => d.status === 'offline').length, color: '#d32f2f' },
+    ];
+
+    return (
+      <div className={classes.root}>
+        <Box
+          sx={(theme) => ({
+            borderRadius: '14px',
+            padding: theme.spacing(1.5),
+            background: drillDown.color,
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+          })}
+        >
+          <IconButton size="small" sx={{ color: '#fff' }} onClick={() => setDrillDown(null)}>
+            <ArrowBackIcon fontSize="small" />
+          </IconButton>
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.1 }}>{drillDown.label}</Typography>
+            <Typography sx={{ fontSize: '0.65rem', opacity: 0.85 }}>
+              {baseList.length}
+              {' '}
+              {t('deviceTitle').toLowerCase()}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* Filter chips */}
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 0.75,
+            overflowX: 'auto',
+            pb: 0.5,
+            '&::-webkit-scrollbar': { height: 0 },
+          }}
+        >
+          {filterChips.map((chip) => (
+            <Chip
+              key={chip.key}
+              label={`${chip.label} ${chip.count}`}
+              size="small"
+              onClick={() => setDrillFilter(chip.key)}
+              sx={(theme) => ({
+                fontWeight: 600,
+                fontSize: '0.68rem',
+                borderRadius: 20,
+                flexShrink: 0,
+                ...(drillFilter === chip.key
+                  ? {
+                    background: chip.color,
+                    color: '#fff',
+                    '&:hover': { background: chip.color },
+                  }
+                  : {
+                    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                    border: `1px solid ${theme.palette.divider}`,
+                    color: theme.palette.text.primary,
+                  }),
+              })}
+            />
+          ))}
+        </Box>
+
+        {/* Search */}
+        <Box
+          sx={(theme) => ({
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.75,
+            borderRadius: 10,
+            padding: theme.spacing(0.5, 1.25),
+            background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+            border: `1px solid ${theme.palette.divider}`,
+          })}
+        >
+          <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+          <InputBase
+            placeholder={t('sharedSearch')}
+            value={drillSearch}
+            onChange={(e) => setDrillSearch(e.target.value)}
+            sx={{ flex: 1, fontSize: '0.8rem' }}
+            autoFocus
+          />
+          {drillSearch && (
+            <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+              {list.length}
+              /
+              {fullList.length}
+            </Typography>
+          )}
+          <Tooltip title={drillSort === 'name' ? t('deviceLastUpdate') : t('sharedName')}>
+            <IconButton
+              size="small"
+              onClick={() => setDrillSort(drillSort === 'name' ? 'lastUpdate' : 'name')}
+              sx={{ flexShrink: 0 }}
+            >
+              {drillSort === 'name'
+                ? <SortByAlphaIcon sx={{ fontSize: 18 }} />
+                : <ScheduleIcon sx={{ fontSize: 18 }} />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+
+        <Box className={classes.section} sx={{ flex: 1, overflowY: 'auto' }}>
+          {list.length === 0 ? (
+            <Typography sx={{ textAlign: 'center', color: 'text.secondary', fontSize: '0.8rem', py: 3 }}>
+              {t('sharedNoResults')}
+            </Typography>
+          ) : list.map((d) => {
+            const pos = positions[d.id];
+            const speed = pos?.speed || 0;
+            const showOfflineSince = (drillDown.filterKey === 'offline' || drillDown.filterKey === 'unknown') && d.lastUpdate;
+            return (
+              <Box key={d.id} className={classes.deviceItem} onClick={() => selectDevice(d.id)} sx={{ flexWrap: 'wrap' }}>
+                <DirectionsCarFilledIcon sx={{ fontSize: 16, color: drillDown.color }} />
+                <Typography className={classes.deviceName}>{d.name}</Typography>
+                {speed > 0 && (
+                  <Typography className={classes.deviceBadge} sx={{ background: `${drillDown.color}18`, color: drillDown.color }}>
+                    {formatSpeed(speed, speedUnit, t)}
+                  </Typography>
+                )}
+                {showOfflineSince && (
+                  <Typography sx={{ fontSize: '0.6rem', color: drillDown.color, whiteSpace: 'nowrap', fontWeight: 600 }}>
+                    {dayjs(d.lastUpdate).fromNow()}
+                  </Typography>
+                )}
+                {!showOfflineSince && (
+                  <Box
+                    sx={{
+                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                      bgcolor: d.status === 'online' ? '#2e7d32' : d.status === 'offline' ? '#d32f2f' : '#ed6c02',
+                    }}
+                  />
+                )}
+              </Box>
+            );
+          })}
+        </Box>
+      </div>
+    );
+  }
+
   return (
     <div className={classes.root}>
-      {/* Total devices header */}
+      {/* Total devices header — clickable to show all */}
       <Box
+        onClick={() => openDrillDown('all', t('deviceTitle'), '#1565c0')}
         sx={(theme) => ({
           borderRadius: '14px',
           padding: theme.spacing(1.5),
@@ -510,6 +738,9 @@ const Dashboard = () => {
           alignItems: 'center',
           gap: 1.5,
           py: 1.5,
+          cursor: 'pointer',
+          transition: 'transform 0.15s, box-shadow 0.15s',
+          '&:hover': { transform: 'translateY(-1px)' },
           boxShadow: theme.palette.mode === 'dark'
             ? '0 4px 16px rgba(0,0,0,0.4)'
             : '0 4px 16px rgba(21,101,192,0.3)',
@@ -523,7 +754,11 @@ const Dashboard = () => {
           <Typography sx={{ fontSize: '0.7rem', opacity: 0.85 }}>{t('deviceTitle')}</Typography>
         </Box>
         <Tooltip title={t('reportTitle')}>
-          <IconButton size="small" sx={{ color: 'rgba(255,255,255,0.7)' }} onClick={() => navigate('/reports/combined')}>
+          <IconButton
+            size="small"
+            sx={{ color: 'rgba(255,255,255,0.7)' }}
+            onClick={(e) => { e.stopPropagation(); navigate('/reports/combined'); }}
+          >
             <OpenInNewIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -537,13 +772,21 @@ const Dashboard = () => {
         <Box className={classes.donutWrap}>
           <DonutChart data={donutData} />
           <Box className={classes.donutLegend}>
-            {donutData.map((d) => (
-              <Box key={d.label} className={classes.legendItem}>
-                <Box className={classes.legendDot} sx={{ bgcolor: d.color }} />
-                <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{d.label}</Typography>
-                <Typography sx={{ fontSize: '0.75rem', fontWeight: 700 }}>{d.value}</Typography>
-              </Box>
-            ))}
+            {donutData.map((d, idx) => {
+              const keys = ['online', 'offline', 'unknown'];
+              return (
+                <Box
+                  key={d.label}
+                  className={classes.legendItem}
+                  onClick={() => openDrillDown(keys[idx], d.label, d.color)}
+                  sx={{ cursor: 'pointer', borderRadius: 1, px: 0.5, '&:hover': { bgcolor: 'action.hover' } }}
+                >
+                  <Box className={classes.legendDot} sx={{ bgcolor: d.color }} />
+                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{d.label}</Typography>
+                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 700 }}>{d.value}</Typography>
+                </Box>
+              );
+            })}
           </Box>
         </Box>
       </Box>
@@ -627,7 +870,12 @@ const Dashboard = () => {
             <Typography className={classes.sectionTitle}>{t('settingsGroups')}</Typography>
           </Box>
           {sortedGroups.map(([name, count]) => (
-            <Box key={name} className={classes.barRow}>
+            <Box
+              key={name}
+              className={classes.barRow}
+              onClick={() => openDrillDown(`group-${name}`, name, '#1565c0')}
+              sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+            >
               <Typography className={classes.barLabel}>{name}</Typography>
               <LinearProgress
                 variant="determinate"
@@ -648,7 +896,12 @@ const Dashboard = () => {
             <Typography className={classes.sectionTitle}>{t('sharedType')}</Typography>
           </Box>
           {sortedCategories.map(([name, count]) => (
-            <Box key={name} className={classes.barRow}>
+            <Box
+              key={name}
+              className={classes.barRow}
+              onClick={() => openDrillDown(`category-${name}`, name, '#00897b')}
+              sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+            >
               <Typography className={classes.barLabel}>{name}</Typography>
               <LinearProgress
                 variant="determinate"
@@ -677,21 +930,29 @@ const Dashboard = () => {
 
           {/* Summary row */}
           <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
-            <Box sx={(theme) => ({
-              flex: 1, borderRadius: 10, padding: theme.spacing(1),
-              background: theme.palette.mode === 'dark' ? 'rgba(0,137,123,0.12)' : 'rgba(0,137,123,0.06)',
-              textAlign: 'center',
-            })}
+            <Box
+              onClick={() => openDrillDown('insideGeofence', `${t('sharedGeofences')} — Inside`, '#00897b')}
+              sx={(theme) => ({
+                flex: 1, borderRadius: 10, padding: theme.spacing(1),
+                background: theme.palette.mode === 'dark' ? 'rgba(0,137,123,0.12)' : 'rgba(0,137,123,0.06)',
+                textAlign: 'center', cursor: 'pointer',
+                transition: 'transform 0.15s',
+                '&:hover': { transform: 'scale(1.03)' },
+              })}
             >
               <PlaceIcon sx={{ fontSize: 16, color: '#00897b', mb: 0.25 }} />
               <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#00897b' }}>{stats.devicesInAnyGeofence}</Typography>
               <Typography sx={{ fontSize: '0.55rem', color: 'text.secondary' }}>Inside</Typography>
             </Box>
-            <Box sx={(theme) => ({
-              flex: 1, borderRadius: 10, padding: theme.spacing(1),
-              background: theme.palette.mode === 'dark' ? 'rgba(237,108,2,0.12)' : 'rgba(237,108,2,0.06)',
-              textAlign: 'center',
-            })}
+            <Box
+              onClick={() => openDrillDown('outsideGeofence', `${t('sharedGeofences')} — Outside`, '#ed6c02')}
+              sx={(theme) => ({
+                flex: 1, borderRadius: 10, padding: theme.spacing(1),
+                background: theme.palette.mode === 'dark' ? 'rgba(237,108,2,0.12)' : 'rgba(237,108,2,0.06)',
+                textAlign: 'center', cursor: 'pointer',
+                transition: 'transform 0.15s',
+                '&:hover': { transform: 'scale(1.03)' },
+              })}
             >
               <NearMeIcon sx={{ fontSize: 16, color: '#ed6c02', mb: 0.25 }} />
               <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#ed6c02' }}>{stats.devicesOutsideGeofences}</Typography>
@@ -701,7 +962,12 @@ const Dashboard = () => {
 
           {/* Per-geofence list */}
           {stats.geofenceStats.map((gf) => (
-            <Box key={gf.id} className={classes.barRow}>
+            <Box
+              key={gf.id}
+              className={classes.barRow}
+              onClick={() => openDrillDown(`geofence-${gf.id}`, gf.name, '#00897b')}
+              sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+            >
               <Typography className={classes.barLabel} sx={{ minWidth: 72 }}>{gf.name}</Typography>
               <LinearProgress
                 variant="determinate"
@@ -746,38 +1012,6 @@ const Dashboard = () => {
         </Box>
       )}
 
-      {/* Recent events */}
-      {recentEvents.length > 0 && (
-        <Box className={classes.section}>
-          <Box className={classes.sectionHeader}>
-            <Typography className={classes.sectionTitle}>
-              <NotificationsActiveIcon sx={{ fontSize: 14 }} />
-              {t('reportEvents')}
-            </Typography>
-            <Tooltip title={t('reportTitle')}>
-              <IconButton size="small" onClick={() => navigate('/reports/event')}>
-                <OpenInNewIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-          {recentEvents.map((event) => {
-            const device = devices[event.deviceId];
-            return (
-              <Box key={event.id} className={classes.eventRow}>
-                <Box className={classes.eventDot} sx={{ bgcolor: eventColors[event.type] || eventColors.default }} />
-                <Typography className={classes.eventText}>
-                  <b>{device?.name || `#${event.deviceId}`}</b>
-                  {' — '}
-                  {t(`event${event.type.charAt(0).toUpperCase()}${event.type.slice(1)}`, { defaultValue: event.type })}
-                </Typography>
-                <Typography className={classes.eventTime}>
-                  {formatEventTime(event.eventTime || event.serverTime)}
-                </Typography>
-              </Box>
-            );
-          })}
-        </Box>
-      )}
     </div>
   );
 };
