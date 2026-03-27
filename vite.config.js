@@ -8,7 +8,7 @@ export default defineConfig(() => ({
   server: {
     port: 3000,
     proxy: {
-      '/api/socket': {
+      '/api/socket': { 
         // target: 'ws://tracker.hoppataxi.com:3010',
         target: 'ws://localhost:8082',
         ws: true

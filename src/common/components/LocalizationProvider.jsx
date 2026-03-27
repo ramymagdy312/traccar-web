@@ -35,8 +35,6 @@ import fr from '../../resources/l10n/fr.json';
 import 'dayjs/locale/fr';
 import gl from '../../resources/l10n/gl.json';
 import 'dayjs/locale/gl';
-import he from '../../resources/l10n/he.json';
-import 'dayjs/locale/he';
 import hi from '../../resources/l10n/hi.json';
 import 'dayjs/locale/hi';
 import hr from '../../resources/l10n/hr.json';
@@ -135,7 +133,6 @@ const languages = {
   fi: { data: fi, country: 'FI', name: 'Suomi' },
   fr: { data: fr, country: 'FR', name: 'Français' },
   gl: { data: gl, country: 'ES', name: 'Galego' },
-  he: { data: he, country: 'IL', name: 'עברית' },
   hi: { data: hi, country: 'IN', name: 'हिन्दी' },
   hr: { data: hr, country: 'HR', name: 'Hrvatski' },
   hu: { data: hu, country: 'HU', name: 'Magyar' },
@@ -215,9 +212,10 @@ export const LocalizationProvider = ({ children }) => {
 
   const [localLanguage, setLocalLanguage] = usePersistedState('language', getDefaultLanguage());
 
-  const language = remoteLanguage || localLanguage;
+  const rawLanguage = remoteLanguage || localLanguage;
+  const language = rawLanguage in languages ? rawLanguage : 'en';
 
-  const direction = /^(ar|he|fa)$/.test(language) ? 'rtl' : 'ltr';
+  const direction = /^(ar|fa)$/.test(language) ? 'rtl' : 'ltr';
 
   const value = useMemo(
     () => ({ languages, language, setLocalLanguage, direction }),

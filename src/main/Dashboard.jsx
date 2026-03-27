@@ -28,7 +28,6 @@ import Battery20Icon from '@mui/icons-material/Battery20';
 import PlaceIcon from '@mui/icons-material/Place';
 import NearMeIcon from '@mui/icons-material/NearMe';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import DirectionsCarFilledIcon from '@mui/icons-material/DirectionsCarFilled';
 import SearchIcon from '@mui/icons-material/Search';
 import SortByAlphaIcon from '@mui/icons-material/SortByAlpha';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -36,7 +35,8 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { useAttributePreference } from '../common/util/preferences';
-import { formatSpeed } from '../common/util/formatter';
+import { formatSpeed, formatStatus } from '../common/util/formatter';
+import { mapIconKey, mapIcons } from '../map/core/preloadImages';
 import { devicesActions } from '../store';
 
 dayjs.extend(relativeTime);
@@ -202,6 +202,17 @@ const useStyles = makeStyles()((theme) => ({
       borderBottom: `1px solid ${theme.palette.divider}`,
     },
   },
+  deviceItemSelected: {
+    backgroundColor: `${theme.palette.mode === 'dark'
+      ? 'rgba(92,158,255,0.12)'
+      : 'rgba(21,101,192,0.08)'} !important`,
+    borderInlineStart: `3px solid ${theme.palette.primary.main}`,
+    '&:hover': {
+      backgroundColor: `${theme.palette.mode === 'dark'
+        ? 'rgba(92,158,255,0.18)'
+        : 'rgba(21,101,192,0.12)'} !important`,
+    },
+  },
   deviceName: {
     fontSize: '0.7rem',
     fontWeight: 600,
@@ -216,6 +227,12 @@ const useStyles = makeStyles()((theme) => ({
     padding: '2px 6px',
     borderRadius: 6,
     whiteSpace: 'nowrap',
+  },
+  deviceCategoryIcon: {
+    width: 20,
+    height: 20,
+    flexShrink: 0,
+    display: 'block',
   },
 }));
 
@@ -267,6 +284,7 @@ const Dashboard = ({ onFilterMap }) => {
   const speedUnit = useAttributePreference('speedUnit');
 
   const devices = useSelector((state) => state.devices.items);
+  const selectedDeviceId = useSelector((state) => state.devices.selectedId);
   const positions = useSelector((state) => state.session.positions);
   const groups = useSelector((state) => state.groups.items);
   const geofences = useSelector((state) => state.geofences.items);
@@ -530,6 +548,8 @@ const Dashboard = ({ onFilterMap }) => {
   );
 
   const selectDevice = (id) => dispatch(devicesActions.selectId(id));
+  const deviceRowClassName = (id) =>
+    [classes.deviceItem, selectedDeviceId === id && classes.deviceItemSelected].filter(Boolean).join(' ');
 
   if (drillDown) {
     let baseList;
@@ -691,29 +711,63 @@ const Dashboard = ({ onFilterMap }) => {
           ) : list.map((d) => {
             const pos = positions[d.id];
             const speed = pos?.speed || 0;
-            const showOfflineSince = (drillDown.filterKey === 'offline' || drillDown.filterKey === 'unknown') && d.lastUpdate;
+            const connectionStatus = d.status || 'unknown';
+            const statusColor = connectionStatus === 'online' ? '#2e7d32' : connectionStatus === 'offline' ? '#d32f2f' : '#ed6c02';
+            const showLastSeen = connectionStatus !== 'online' && d.lastUpdate;
+            const categoryIconUrl = mapIcons[mapIconKey(d.category)];
             return (
-              <Box key={d.id} className={classes.deviceItem} onClick={() => selectDevice(d.id)} sx={{ flexWrap: 'wrap' }}>
-                <DirectionsCarFilledIcon sx={{ fontSize: 16, color: drillDown.color }} />
-                <Typography className={classes.deviceName}>{d.name}</Typography>
-                {speed > 0 && (
-                  <Typography className={classes.deviceBadge} sx={{ background: `${drillDown.color}18`, color: drillDown.color }}>
-                    {formatSpeed(speed, speedUnit, t)}
-                  </Typography>
-                )}
-                {showOfflineSince && (
-                  <Typography sx={{ fontSize: '0.6rem', color: drillDown.color, whiteSpace: 'nowrap', fontWeight: 600 }}>
-                    {dayjs(d.lastUpdate).fromNow()}
-                  </Typography>
-                )}
-                {!showOfflineSince && (
+              <Box
+                key={d.id}
+                className={deviceRowClassName(d.id)}
+                onClick={() => selectDevice(d.id)}
+                sx={{ flexDirection: 'column', alignItems: 'stretch', flexWrap: 'nowrap' }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0 }}>
                   <Box
+                    className={classes.deviceCategoryIcon}
+                    role="presentation"
                     sx={{
-                      width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                      bgcolor: d.status === 'online' ? '#2e7d32' : d.status === 'offline' ? '#d32f2f' : '#ed6c02',
+                      backgroundColor: statusColor,
+                      maskImage: `url(${JSON.stringify(categoryIconUrl)})`,
+                      maskSize: 'contain',
+                      maskRepeat: 'no-repeat',
+                      maskPosition: 'center',
+                      WebkitMaskImage: `url(${JSON.stringify(categoryIconUrl)})`,
+                      WebkitMaskSize: 'contain',
+                      WebkitMaskRepeat: 'no-repeat',
+                      WebkitMaskPosition: 'center',
                     }}
                   />
-                )}
+                  <Typography className={classes.deviceName}>{d.name}</Typography>
+                  {speed > 0 && (
+                    <Typography className={classes.deviceBadge} sx={{ background: `${drillDown.color}18`, color: drillDown.color, flexShrink: 0 }}>
+                      {formatSpeed(speed, speedUnit, t)}
+                    </Typography>
+                  )}
+                </Box>
+                <Box
+                  sx={(theme) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    mt: 0.25,
+                    width: '100%',
+                    minWidth: 0,
+                    textAlign: 'start',
+                    paddingInlineStart: `calc(20px + ${theme.spacing(1)})`,
+                  })}
+                >
+                  <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: statusColor, lineHeight: 1.2 }}>
+                    {formatStatus(connectionStatus, t)}
+                  </Typography>
+                  {showLastSeen && (
+                    <Typography sx={{ fontSize: '0.58rem', color: 'text.secondary', fontWeight: 500, lineHeight: 1.2 }}>
+                      {dayjs(d.lastUpdate).fromNow()}
+                    </Typography>
+                  )}
+                </Box>
               </Box>
             );
           })}
@@ -824,7 +878,11 @@ const Dashboard = ({ onFilterMap }) => {
             </Typography>
           </Box>
           {stats.topSpeed.map((d, idx) => (
-            <Box key={d.id} className={classes.deviceItem} onClick={() => selectDevice(d.id)}>
+            <Box
+              key={d.id}
+              className={deviceRowClassName(d.id)}
+              onClick={() => selectDevice(d.id)}
+            >
               <Box sx={{ width: 20, height: 20, borderRadius: 6, background: idx === 0 ? 'linear-gradient(135deg, #d32f2f, #f44336)' : 'rgba(0,0,0,0.06)', color: idx === 0 ? '#fff' : 'text.secondary', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
                 {idx + 1}
               </Box>
@@ -850,7 +908,11 @@ const Dashboard = ({ onFilterMap }) => {
             </Typography>
           </Box>
           {stats.lowBatteryDevices.map((d) => (
-            <Box key={d.id} className={classes.deviceItem} onClick={() => selectDevice(d.id)}>
+            <Box
+              key={d.id}
+              className={deviceRowClassName(d.id)}
+              onClick={() => selectDevice(d.id)}
+            >
               {d.level <= 20
                 ? <Battery20Icon sx={{ fontSize: 16, color: '#d32f2f' }} />
                 : <BatteryFullIcon sx={{ fontSize: 16, color: '#ed6c02' }} />}
@@ -1000,15 +1062,43 @@ const Dashboard = ({ onFilterMap }) => {
               {t('deviceLastUpdate')}
             </Typography>
           </Box>
-          {stats.staleDevices.map((d) => (
-            <Box key={d.id} className={classes.deviceItem} onClick={() => selectDevice(d.id)}>
-              <WarningAmberIcon sx={{ fontSize: 14, color: d.status === 'offline' ? '#d32f2f' : '#ed6c02' }} />
-              <Typography className={classes.deviceName}>{d.name}</Typography>
-              <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                {dayjs(d.lastUpdate).fromNow()}
-              </Typography>
-            </Box>
-          ))}
+          {stats.staleDevices.map((d) => {
+            const connectionStatus = d.status || 'unknown';
+            const statusColor = connectionStatus === 'online' ? '#2e7d32' : connectionStatus === 'offline' ? '#d32f2f' : '#ed6c02';
+            return (
+              <Box
+                key={d.id}
+                className={deviceRowClassName(d.id)}
+                onClick={() => selectDevice(d.id)}
+                sx={{ flexDirection: 'column', alignItems: 'stretch', flexWrap: 'nowrap' }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0 }}>
+                  <WarningAmberIcon sx={{ fontSize: 14, color: statusColor, flexShrink: 0 }} />
+                  <Typography className={classes.deviceName}>{d.name}</Typography>
+                  <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', whiteSpace: 'nowrap', flexShrink: 0, ml: 'auto' }}>
+                    {dayjs(d.lastUpdate).fromNow()}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={(theme) => ({
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-start',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    mt: 0.25,
+                    width: '100%',
+                    textAlign: 'start',
+                    paddingInlineStart: `calc(14px + ${theme.spacing(1)})`,
+                  })}
+                >
+                  <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: statusColor, lineHeight: 1.2 }}>
+                    {formatStatus(connectionStatus, t)}
+                  </Typography>
+                </Box>
+              </Box>
+            );
+          })}
         </Box>
       )}
 
