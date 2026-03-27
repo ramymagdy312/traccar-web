@@ -465,17 +465,17 @@ const Dashboard = ({ onFilterMap }) => {
 
   const allDevicesList = useMemo(() => Object.values(devices), [devices]);
 
-  const drillDownLists = {
-    all: allDevicesList,
-    online: stats.onlineDevices,
-    offline: stats.offlineDevices,
-    unknown: stats.unknownDevices,
-    moving: stats.movingDevicesList,
-    parked: stats.parkedDevicesList,
-    ignition: stats.ignitionOnDevicesList,
-    insideGeofence: stats.insideGeofenceDevicesList,
-    outsideGeofence: stats.outsideGeofenceDevicesList,
-  };
+  const drillDownLists = useMemo(() => ({
+        all: allDevicesList,
+        online: stats.onlineDevices,
+        offline: stats.offlineDevices,
+        unknown: stats.unknownDevices,
+        moving: stats.movingDevicesList,
+        parked: stats.parkedDevicesList,
+        ignition: stats.ignitionOnDevicesList,
+        insideGeofence: stats.insideGeofenceDevicesList,
+        outsideGeofence: stats.outsideGeofenceDevicesList,
+      }), [allDevicesList, stats]);
 
   const openDrillDown = (filterKey, label, color) => {
     setDrillSearch('');
