@@ -59,6 +59,7 @@ import { generateLoginToken } from './common/components/NativeInterface';
 import { useLocalization } from './common/components/LocalizationProvider';
 import fetchOrThrow from './common/util/fetchOrThrow';
 import AuditPage from './reports/AuditPage';
+import OverSpeedReportPage from './reports/OverSpeedReportPage';
 
 const Navigation = () => {
   const dispatch = useDispatch();
@@ -177,6 +178,7 @@ const Navigation = () => {
           <Route path="stops" element={<StopReportPage />} />
           <Route path="summary" element={<SummaryReportPage />} />
           <Route path="trips" element={<TripReportPage />} />
+          <Route path="overspeed" element={<OverSpeedReportPage />} />
           <Route path="scheduled" element={<ScheduledPage />} />
           <Route path="statistics" element={<StatisticsPage />} />
           <Route path="audit" element={<AuditPage />} />

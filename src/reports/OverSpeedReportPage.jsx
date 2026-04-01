@@ -28,6 +28,7 @@ import MapGeofence from '../map/MapGeofence';
 import scheduleReport from './common/scheduleReport';
 import MapScale from '../map/MapScale';
 import { MenuItem, Select, InputLabel, FormControl } from '@mui/material';
+import fetchOrThrow from '../common/util/fetchOrThrow';
 
 const columnsArray = [
   ['deviceName', 'sharedDevice'],
@@ -106,33 +107,30 @@ const OverSpeedReportPage = () => {
       }
     }, [selectedItem]);
 
-  const handleSubmit = useCatch(async ({ deviceIds, groupIds, from, to, type }) => {
+  const buildQuery = (deviceIds, groupIds, from, to) => {
     const query = new URLSearchParams({ from, to });
     deviceIds.forEach((deviceId) => query.append('deviceId', deviceId));
     groupIds.forEach((groupId) => query.append('groupId', groupId));
     query.append('speedLimit', speedLimit);
-    if (type === 'export') {
-      window.location.assign(`/api/reports/overSpeed/xlsx?${query.toString()}`);
-    } else if (type === 'mail') {
-      const response = await fetch(`/api/reports/overSpeed/mail?${query.toString()}`);
-      if (!response.ok) {
-        throw Error(await response.text());
-      }
-    } else {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/reports/overSpeed?${query.toString()}`, {
-          headers: { Accept: 'application/json' },
-        });
-        if (response.ok) {
-          setItems(await response.json());
-        } else {
-          throw Error(await response.text());
-        }
-      } finally {
-        setLoading(false);
-      }
+    return query;
+  };
+
+  const onShow = useCatch(async ({ deviceIds, groupIds, from, to }) => {
+    setLoading(true);
+    try {
+      const query = buildQuery(deviceIds, groupIds, from, to);
+      const response = await fetchOrThrow(`/api/reports/overSpeed?${query.toString()}`, {
+        headers: { Accept: 'application/json' },
+      });
+      setItems(await response.json());
+    } finally {
+      setLoading(false);
     }
+  });
+
+  const onExport = useCatch(async ({ deviceIds, groupIds, from, to }) => {
+    const query = buildQuery(deviceIds, groupIds, from, to);
+    window.location.assign(`/api/reports/overSpeed/xlsx?${query.toString()}`);
   });
 
   const handleSchedule = useCatch(async (deviceIds, groupIds, report) => {
@@ -191,7 +189,13 @@ const OverSpeedReportPage = () => {
         )}
         <div className={classes.containerMain}>
           <div className={classes.header}>
-            <ReportFilter handleSubmit={handleSubmit} handleSchedule={handleSchedule} includeGroups multiDevice loading={loading}>
+            <ReportFilter
+              onShow={onShow}
+              onExport={onExport}
+              onSchedule={handleSchedule}
+              deviceType="multiple"
+              loading={loading}
+            >
               <ColumnSelect columns={columns} setColumns={setColumns} columnsArray={columnsArray} />
               <FormControl variant="outlined" size="small" style={{ width: 150, marginLeft: 16 }}>
                 <InputLabel>{t('sharedSpeedLimit')}</InputLabel>

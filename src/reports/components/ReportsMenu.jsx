@@ -12,6 +12,7 @@ import RouteIcon from '@mui/icons-material/Route';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import NotesIcon from '@mui/icons-material/Notes';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import SpeedIcon from '@mui/icons-material/Speed';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from '../../common/components/LocalizationProvider';
 import { useAdministrator, useRestriction } from '../../common/util/permissions';
@@ -77,6 +78,12 @@ const ReportsMenu = () => {
           link={buildLink('/reports/stops')}
           icon={<PauseCircleFilledIcon />}
           selected={location.pathname === '/reports/stops'}
+        />
+        <MenuItem
+          title={t('reportOverSpeed')}
+          link={buildLink('/reports/overspeed')}
+          icon={<SpeedIcon />}
+          selected={location.pathname === '/reports/overspeed'}
         />
         <MenuItem
           title={t('reportSummary')}
