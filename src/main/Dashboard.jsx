@@ -10,10 +10,8 @@ import {
   InputBase,
   Chip,
 } from '@mui/material';
+import { alpha, useTheme } from '@mui/material/styles';
 import { makeStyles } from 'tss-react/mui';
-import GpsFixedIcon from '@mui/icons-material/GpsFixed';
-import SignalWifiOffIcon from '@mui/icons-material/SignalWifiOff';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import SpeedIcon from '@mui/icons-material/Speed';
 import LocalParkingIcon from '@mui/icons-material/LocalParking';
 import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
@@ -22,7 +20,6 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import UpdateIcon from '@mui/icons-material/Update';
 import FenceIcon from '@mui/icons-material/Fence';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import PowerSettingsNewIcon from '@mui/icons-material/PowerSettingsNew';
 import BatteryFullIcon from '@mui/icons-material/BatteryFull';
 import Battery20Icon from '@mui/icons-material/Battery20';
 import PlaceIcon from '@mui/icons-material/Place';
@@ -41,6 +38,16 @@ import { devicesActions } from '../store';
 
 dayjs.extend(relativeTime);
 
+/** Light-mode dashboard tints (reference: soft mobile fleet UI) */
+const DASHBOARD_LIGHT_PASTEL = {
+  motionCardBg: '#E3F2FD',
+  motionAccent: '#1976D2',
+  stopsCardBg: '#F3E5F5',
+  stopsAccent: '#7B1FA2',
+  softShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+  softShadowHover: '0 6px 16px rgba(0, 0, 0, 0.08)',
+};
+
 const useStyles = makeStyles()((theme) => ({
   root: {
     padding: theme.spacing(1.5),
@@ -51,70 +58,138 @@ const useStyles = makeStyles()((theme) => ({
     height: '100%',
     width: '100%',
     boxSizing: 'border-box',
+    backgroundColor: theme.palette.background.default,
     '&::-webkit-scrollbar': { width: 4 },
-    '&::-webkit-scrollbar-thumb': { background: 'rgba(0,0,0,0.1)', borderRadius: 2 },
+    '&::-webkit-scrollbar-thumb': {
+      background: theme.palette.mode === 'dark'
+        ? alpha(theme.palette.common.white, 0.12)
+        : alpha(theme.palette.common.black, 0.12),
+      borderRadius: 2,
+    },
   },
   statusRow: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr 1fr',
-    gap: theme.spacing(1),
+    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+    gap: theme.spacing(1.25),
   },
-  statusCard: {
+  deviceHero: {
     display: 'flex',
-    flexDirection: 'column',
     alignItems: 'center',
-    padding: theme.spacing(1.5, 1),
-    borderRadius: 14,
+    gap: theme.spacing(1.75),
+    padding: theme.spacing(1.75, 2),
     cursor: 'pointer',
-    transition: 'transform 0.15s, box-shadow 0.15s',
-    '&:hover': {
-      transform: 'translateY(-2px)',
-      boxShadow: theme.palette.mode === 'dark'
-        ? '0 6px 20px rgba(0,0,0,0.4)'
-        : '0 6px 20px rgba(0,0,0,0.1)',
-    },
+    transition: 'transform 0.18s ease, box-shadow 0.2s ease',
+    ...(theme.palette.mode === 'light'
+      ? {
+        borderRadius: 18,
+        background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+        boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.28)}`,
+        border: 'none',
+        color: theme.palette.primary.contrastText,
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.36)}`,
+        },
+      }
+      : {
+        borderRadius: 12,
+        border: `1px solid ${theme.palette.divider}`,
+        borderLeftWidth: 3,
+        borderLeftColor: theme.palette.primary.main,
+        backgroundColor: theme.palette.background.paper,
+        boxShadow: theme.palette.mode === 'dark'
+          ? '0 1px 2px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.2)'
+          : '0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.06)',
+        '&:hover': {
+          borderColor: theme.palette.divider,
+          borderLeftColor: theme.palette.primary.main,
+          boxShadow: theme.palette.mode === 'dark'
+            ? '0 2px 8px rgba(0,0,0,0.35)'
+            : '0 2px 8px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06)',
+          transform: 'translateY(-1px)',
+        },
+      }),
   },
-  iconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  deviceHeroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: theme.spacing(0.75),
+    flexShrink: 0,
   },
-  count: {
-    fontWeight: 700,
-    fontSize: '1.25rem',
-    lineHeight: 1.2,
+  metricCard: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing(1.25),
+    padding: theme.spacing(1.25, 1.5),
+    minWidth: 0,
+    borderRadius: theme.palette.mode === 'light' ? 16 : 12,
+    cursor: 'pointer',
+    transition: 'box-shadow 0.2s ease, border-color 0.2s ease, transform 0.15s ease',
+    backgroundColor: theme.palette.background.paper,
+    border: `1px solid ${theme.palette.divider}`,
+    boxShadow: theme.palette.mode === 'dark'
+      ? '0 1px 2px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.2)'
+      : '0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.06)',
+    '&:hover': {
+      borderColor: theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.14) : alpha(theme.palette.common.black, 0.1),
+      boxShadow: theme.palette.mode === 'dark'
+        ? '0 2px 8px rgba(0,0,0,0.35)'
+        : '0 2px 8px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06)',
+      transform: 'translateY(-1px)',
+    },
   },
-  label: {
-    fontSize: '0.65rem',
+  metricIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  metricValue: {
+    fontWeight: 600,
+    fontSize: '1.35rem',
+    lineHeight: 1.15,
+    letterSpacing: '-0.02em',
+    color: theme.palette.text.primary,
+  },
+  metricLabel: {
+    fontSize: '0.7rem',
     color: theme.palette.text.secondary,
     fontWeight: 500,
-    textAlign: 'center',
+    lineHeight: 1.2,
+    marginTop: 2,
   },
   section: {
-    background: theme.palette.background.paper,
-    borderRadius: 14,
+    backgroundColor: theme.palette.background.paper,
+    borderRadius: theme.palette.mode === 'light' ? 16 : 12,
     padding: theme.spacing(1.5),
-    boxShadow: theme.palette.mode === 'dark'
-      ? '0 2px 8px rgba(0,0,0,0.3)'
-      : '0 2px 8px rgba(0,0,0,0.04)',
+    border: `1px solid ${theme.palette.divider}`,
+    boxShadow: theme.palette.mode === 'light'
+      ? DASHBOARD_LIGHT_PASTEL.softShadow
+      : theme.palette.mode === 'dark'
+        ? '0 1px 2px rgba(0,0,0,0.32), 0 2px 8px rgba(0,0,0,0.2)'
+        : '0 1px 2px rgba(15, 23, 42, 0.04), 0 2px 6px rgba(15, 23, 42, 0.06)',
   },
   sectionHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing(1),
+    marginBottom: theme.spacing(1.25),
   },
   sectionTitle: {
-    fontWeight: 700,
-    fontSize: '0.8rem',
+    fontWeight: 600,
+    fontSize: '0.8125rem',
+    letterSpacing: '0.01em',
     color: theme.palette.text.primary,
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(0.5),
+    gap: theme.spacing(0.75),
   },
   barRow: {
     display: 'flex',
@@ -149,19 +224,26 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    padding: theme.spacing(1),
-    borderRadius: 10,
-    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+    padding: theme.spacing(1.25, 1),
+    borderRadius: theme.palette.mode === 'light' ? 12 : 10,
+    border: `1px solid ${theme.palette.divider}`,
+    backgroundColor: theme.palette.mode === 'dark'
+      ? alpha(theme.palette.common.white, 0.03)
+      : theme.palette.mode === 'light'
+        ? theme.palette.background.paper
+        : alpha(theme.palette.common.black, 0.02),
   },
   speedValue: {
-    fontWeight: 700,
-    fontSize: '1.1rem',
-    color: theme.palette.primary.main,
+    fontWeight: 600,
+    fontSize: '1.05rem',
+    letterSpacing: '-0.02em',
+    color: theme.palette.mode === 'light' ? theme.palette.primary.main : theme.palette.text.primary,
   },
   speedLabel: {
-    fontSize: '0.6rem',
+    fontSize: '0.65rem',
     color: theme.palette.text.secondary,
     fontWeight: 500,
+    marginTop: 4,
   },
   donutWrap: {
     display: 'flex',
@@ -203,14 +285,10 @@ const useStyles = makeStyles()((theme) => ({
     },
   },
   deviceItemSelected: {
-    backgroundColor: `${theme.palette.mode === 'dark'
-      ? 'rgba(92,158,255,0.12)'
-      : 'rgba(21,101,192,0.08)'} !important`,
+    backgroundColor: `${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.08)} !important`,
     borderInlineStart: `3px solid ${theme.palette.primary.main}`,
     '&:hover': {
-      backgroundColor: `${theme.palette.mode === 'dark'
-        ? 'rgba(92,158,255,0.18)'
-        : 'rgba(21,101,192,0.12)'} !important`,
+      backgroundColor: `${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.22 : 0.12)} !important`,
     },
   },
   deviceName: {
@@ -238,14 +316,18 @@ const useStyles = makeStyles()((theme) => ({
 
 
 const DonutChart = ({ data, size = 80, strokeWidth = 10 }) => {
+  const theme = useTheme();
+  const trackColor = theme.palette.mode === 'dark'
+    ? alpha(theme.palette.common.white, 0.1)
+    : alpha(theme.palette.text.primary, 0.08);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
   let offset = 0;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(0,0,0,0.06)" strokeWidth={strokeWidth} />
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ color: theme.palette.text.primary }}>
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} />
       {data.filter((d) => d.value > 0).map((d) => {
         const dash = (d.value / total) * circumference;
         const gap = circumference - dash;
@@ -277,9 +359,27 @@ const DonutChart = ({ data, size = 80, strokeWidth = 10 }) => {
 
 const Dashboard = ({ onFilterMap }) => {
   const { classes } = useStyles();
+  const theme = useTheme();
   const t = useTranslation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
+  const dash = useMemo(
+    () => ({
+      online: theme.palette.success.main,
+      offline: theme.palette.error.main,
+      unknown: theme.palette.warning.main,
+      primary: theme.palette.primary.main,
+      primaryLight: theme.palette.primary.light,
+      secondary: theme.palette.secondary.main,
+      secondaryLight: theme.palette.secondary.light,
+      info: theme.palette.info.main,
+      infoLight: theme.palette.info.light,
+      geofence: theme.palette.info.main,
+      geofenceLight: theme.palette.info.light,
+    }),
+    [theme],
+  );
 
   const speedUnit = useAttributePreference('speedUnit');
 
@@ -311,11 +411,6 @@ const Dashboard = ({ onFilterMap }) => {
     const movingDevicesList = devList.filter((d) => movingDeviceIds.has(d.id));
     const parkedDevicesList = devList.filter((d) => !movingDeviceIds.has(d.id));
 
-    const ignitionOnIds = new Set(
-      posList.filter((p) => p.attributes?.ignition === true).map((p) => p.deviceId),
-    );
-    const ignitionOnDevicesList = devList.filter((d) => ignitionOnIds.has(d.id));
-
     const speeds = posList.map((p) => p.speed || 0);
     const maxSpeed = speeds.length ? Math.max(...speeds) : 0;
     const movingSpeeds = speeds.filter((s) => s > 0);
@@ -326,8 +421,6 @@ const Dashboard = ({ onFilterMap }) => {
     const lowBattery = posList.filter(
       (p) => p.attributes?.batteryLevel !== undefined && p.attributes.batteryLevel <= 20,
     ).length;
-
-    const ignitionOn = ignitionOnIds.size;
 
     const groupCounts = {};
     const groupDevices = {};
@@ -405,66 +498,43 @@ const Dashboard = ({ onFilterMap }) => {
 
     return {
       online, offline, unknown, total,
-      moving, parked, ignitionOn,
+      moving, parked,
       maxSpeed, avgMovingSpeed,
       lowBattery,
       groupCounts, groupDevices, categoryCounts, categoryDevices,
       topSpeed, lowBatteryDevices, staleDevices,
       geofenceStats, devicesInAnyGeofence: devicesInAnyGeofence.size, devicesOutsideGeofences,
       onlineDevices, offlineDevices, unknownDevices,
-      movingDevicesList, parkedDevicesList, ignitionOnDevicesList,
+      movingDevicesList, parkedDevicesList,
       outsideGeofenceDevicesList, insideGeofenceDevicesList,
     };
   }, [devices, positions, groups, geofences, t]);
 
 
-  const statusCards = [
-    {
-      count: stats.online, label: t('deviceStatusOnline'), filterKey: 'online',
-      icon: <GpsFixedIcon sx={{ fontSize: 20 }} />,
-      bg: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
-      bgDark: 'linear-gradient(135deg, #1b3a1f 0%, #2e5232 100%)',
-      iconBg: '#2e7d32', color: '#2e7d32',
+  const activityCards = useMemo(
+    () => {
+      const light = theme.palette.mode === 'light';
+      return [
+        {
+          count: stats.moving,
+          label: t('positionMotion'),
+          filterKey: 'moving',
+          icon: <SpeedIcon sx={{ fontSize: 22 }} />,
+          accent: light ? DASHBOARD_LIGHT_PASTEL.motionAccent : dash.primary,
+          cardBg: light ? DASHBOARD_LIGHT_PASTEL.motionCardBg : null,
+        },
+        {
+          count: stats.parked,
+          label: t('reportStops'),
+          filterKey: 'parked',
+          icon: <LocalParkingIcon sx={{ fontSize: 22 }} />,
+          accent: light ? DASHBOARD_LIGHT_PASTEL.stopsAccent : dash.secondary,
+          cardBg: light ? DASHBOARD_LIGHT_PASTEL.stopsCardBg : null,
+        },
+      ];
     },
-    {
-      count: stats.offline, label: t('deviceStatusOffline'), filterKey: 'offline',
-      icon: <SignalWifiOffIcon sx={{ fontSize: 20 }} />,
-      bg: 'linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%)',
-      bgDark: 'linear-gradient(135deg, #3a1b1b 0%, #52302e 100%)',
-      iconBg: '#d32f2f', color: '#d32f2f',
-    },
-    {
-      count: stats.unknown, label: t('deviceStatusUnknown'), filterKey: 'unknown',
-      icon: <HelpOutlineIcon sx={{ fontSize: 20 }} />,
-      bg: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
-      bgDark: 'linear-gradient(135deg, #3a2e1b 0%, #524632 100%)',
-      iconBg: '#ed6c02', color: '#ed6c02',
-    },
-  ];
-
-  const activityCards = [
-    {
-      count: stats.moving, label: t('positionMotion'), filterKey: 'moving',
-      icon: <SpeedIcon sx={{ fontSize: 20 }} />,
-      bg: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-      bgDark: 'linear-gradient(135deg, #1a2a3a 0%, #2a4060 100%)',
-      iconBg: '#1565c0', color: '#1565c0',
-    },
-    {
-      count: stats.parked, label: t('reportStops'), filterKey: 'parked',
-      icon: <LocalParkingIcon sx={{ fontSize: 20 }} />,
-      bg: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)',
-      bgDark: 'linear-gradient(135deg, #2a1a3a 0%, #3d2a52 100%)',
-      iconBg: '#7b1fa2', color: '#7b1fa2',
-    },
-    {
-      count: stats.ignitionOn, label: t('positionIgnition'), filterKey: 'ignition',
-      icon: <PowerSettingsNewIcon sx={{ fontSize: 20 }} />,
-      bg: 'linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%)',
-      bgDark: 'linear-gradient(135deg, #1a3a36 0%, #2a524e 100%)',
-      iconBg: '#00897b', color: '#00897b',
-    },
-  ];
+    [stats.moving, stats.parked, t, theme.palette.mode, dash.primary, dash.secondary],
+  );
 
 
   const sortedGroups = Object.entries(stats.groupCounts).sort((a, b) => b[1] - a[1]);
@@ -475,11 +545,14 @@ const Dashboard = ({ onFilterMap }) => {
   const [drillFilter, setDrillFilter] = useState('all');
   const [drillSort, setDrillSort] = useState('name');
 
-  const donutData = [
-    { label: t('deviceStatusOnline'), value: stats.online, color: '#2e7d32' },
-    { label: t('deviceStatusOffline'), value: stats.offline, color: '#d32f2f' },
-    { label: t('deviceStatusUnknown'), value: stats.unknown, color: '#ed6c02' },
-  ];
+  const donutData = useMemo(
+    () => [
+      { label: t('deviceStatusOnline'), value: stats.online, color: dash.online },
+      { label: t('deviceStatusOffline'), value: stats.offline, color: dash.offline },
+      { label: t('deviceStatusUnknown'), value: stats.unknown, color: dash.unknown },
+    ],
+    [stats.online, stats.offline, stats.unknown, t, dash.online, dash.offline, dash.unknown],
+  );
 
   const allDevicesList = useMemo(() => Object.values(devices), [devices]);
 
@@ -490,7 +563,6 @@ const Dashboard = ({ onFilterMap }) => {
         unknown: stats.unknownDevices,
         moving: stats.movingDevicesList,
         parked: stats.parkedDevicesList,
-        ignition: stats.ignitionOnDevicesList,
         insideGeofence: stats.insideGeofenceDevicesList,
         outsideGeofence: stats.outsideGeofenceDevicesList,
       }), [allDevicesList, stats]);
@@ -529,19 +601,44 @@ const Dashboard = ({ onFilterMap }) => {
       {cards.map((card) => (
         <Box
           key={card.label}
-          className={classes.statusCard}
-          onClick={() => openDrillDown(card.filterKey, card.label, card.color)}
-          sx={(theme) => ({
-            background: theme.palette.mode === 'dark' ? card.bgDark : card.bg,
-          })}
+          className={classes.metricCard}
+          onClick={() => openDrillDown(card.filterKey, card.label, card.accent)}
+          sx={
+            card.cardBg
+              ? {
+                backgroundColor: card.cardBg,
+                border: '1px solid rgba(0,0,0,0.04)',
+                boxShadow: DASHBOARD_LIGHT_PASTEL.softShadow,
+                '&:hover': {
+                  boxShadow: DASHBOARD_LIGHT_PASTEL.softShadowHover,
+                  transform: 'translateY(-2px)',
+                  borderColor: 'rgba(0,0,0,0.06)',
+                },
+              }
+              : undefined
+          }
         >
-          <Box className={classes.iconWrap} sx={{ background: `${card.iconBg}18` }}>
-            <Box sx={{ color: card.iconBg }}>{card.icon}</Box>
+          <Box
+            className={classes.metricIconWrap}
+            sx={(t) => ({
+              backgroundColor: alpha(
+                card.accent,
+                t.palette.mode === 'dark' ? 0.22 : card.cardBg ? 0.18 : 0.12,
+              ),
+              color: card.accent,
+            })}
+          >
+            {card.icon}
           </Box>
-          <Typography className={classes.count} sx={{ color: card.color }}>
-            {card.count}
-          </Typography>
-          <Typography className={classes.label}>{card.label}</Typography>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography
+              className={classes.metricValue}
+              sx={card.cardBg ? { color: card.accent } : undefined}
+            >
+              {card.count}
+            </Typography>
+            <Typography className={classes.metricLabel}>{card.label}</Typography>
+          </Box>
         </Box>
       ))}
     </div>
@@ -593,27 +690,27 @@ const Dashboard = ({ onFilterMap }) => {
     });
 
     const filterChips = [
-      { key: 'all', label: 'All', count: baseList.length, color: '#1565c0' },
-      { key: 'moving', label: t('positionMotion'), count: baseList.filter((d) => positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0).length, color: '#1565c0' },
-      { key: 'stopped', label: t('reportStops'), count: baseList.filter((d) => !(positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0)).length, color: '#7b1fa2' },
-      { key: 'online', label: t('deviceStatusOnline'), count: baseList.filter((d) => d.status === 'online').length, color: '#2e7d32' },
-      { key: 'offline', label: t('deviceStatusOffline'), count: baseList.filter((d) => d.status === 'offline').length, color: '#d32f2f' },
+      { key: 'all', label: 'All', count: baseList.length, color: dash.primary },
+      { key: 'moving', label: t('positionMotion'), count: baseList.filter((d) => positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0).length, color: dash.primary },
+      { key: 'stopped', label: t('reportStops'), count: baseList.filter((d) => !(positions[d.id]?.attributes?.motion || (positions[d.id]?.speed || 0) > 0)).length, color: dash.secondary },
+      { key: 'online', label: t('deviceStatusOnline'), count: baseList.filter((d) => d.status === 'online').length, color: dash.online },
+      { key: 'offline', label: t('deviceStatusOffline'), count: baseList.filter((d) => d.status === 'offline').length, color: dash.offline },
     ];
 
     return (
       <div className={classes.root}>
         <Box
-          sx={(theme) => ({
-            borderRadius: '14px',
+          sx={{
+            borderRadius: '12px',
             padding: theme.spacing(1.5),
-            background: drillDown.color,
-            color: '#ffffff',
+            background: `linear-gradient(135deg, ${drillDown.color} 0%, ${alpha(drillDown.color, 0.88)} 100%)`,
+            color: theme.palette.getContrastText(drillDown.color),
             display: 'flex',
             alignItems: 'center',
             gap: 1,
-          })}
+          }}
         >
-          <IconButton size="small" sx={{ color: '#fff' }} onClick={() => setDrillDown(null)}>
+          <IconButton size="small" sx={{ color: 'inherit' }} onClick={() => setDrillDown(null)}>
             <ArrowBackIcon fontSize="small" />
           </IconButton>
           <Box sx={{ flex: 1 }}>
@@ -650,7 +747,7 @@ const Dashboard = ({ onFilterMap }) => {
                 ...(drillFilter === chip.key
                   ? {
                     background: chip.color,
-                    color: '#fff',
+                    color: theme.palette.getContrastText(chip.color),
                     '&:hover': { background: chip.color },
                   }
                   : {
@@ -712,7 +809,11 @@ const Dashboard = ({ onFilterMap }) => {
             const pos = positions[d.id];
             const speed = pos?.speed || 0;
             const connectionStatus = d.status || 'unknown';
-            const statusColor = connectionStatus === 'online' ? '#2e7d32' : connectionStatus === 'offline' ? '#d32f2f' : '#ed6c02';
+            const statusColor = connectionStatus === 'online'
+              ? dash.online
+              : connectionStatus === 'offline'
+                ? dash.offline
+                : dash.unknown;
             const showLastSeen = connectionStatus !== 'online' && d.lastUpdate;
             const categoryIconUrl = mapIcons[mapIconKey(d.category)];
             return (
@@ -740,7 +841,14 @@ const Dashboard = ({ onFilterMap }) => {
                   />
                   <Typography className={classes.deviceName}>{d.name}</Typography>
                   {speed > 0 && (
-                    <Typography className={classes.deviceBadge} sx={{ background: `${drillDown.color}18`, color: drillDown.color, flexShrink: 0 }}>
+                    <Typography
+                      className={classes.deviceBadge}
+                      sx={{
+                        background: alpha(drillDown.color, 0.14),
+                        color: drillDown.color,
+                        flexShrink: 0,
+                      }}
+                    >
                       {formatSpeed(speed, speedUnit, t)}
                     </Typography>
                   )}
@@ -778,39 +886,54 @@ const Dashboard = ({ onFilterMap }) => {
 
   return (
     <div className={classes.root}>
-      {/* Total devices header — clickable to show all */}
+      {/* Total devices — same card language as the rest of the dashboard */}
       <Box
-        onClick={() => openDrillDown('all', t('deviceTitle'), '#1565c0')}
-        sx={(theme) => ({
-          borderRadius: '14px',
-          padding: theme.spacing(1.5),
-          background: theme.palette.mode === 'dark'
-            ? 'linear-gradient(135deg, #0d2137 0%, #1a3a5c 100%)'
-            : 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)',
-          color: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-          py: 1.5,
-          cursor: 'pointer',
-          transition: 'transform 0.15s, box-shadow 0.15s',
-          '&:hover': { transform: 'translateY(-1px)' },
-          boxShadow: theme.palette.mode === 'dark'
-            ? '0 4px 16px rgba(0,0,0,0.4)'
-            : '0 4px 16px rgba(21,101,192,0.3)',
-        })}
+        className={classes.deviceHero}
+        onClick={() => openDrillDown('all', t('deviceTitle'), dash.primary)}
       >
-        <Box sx={{ width: 44, height: 44, borderRadius: '12px', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box
+          className={classes.deviceHeroIcon}
+          sx={(t) => (t.palette.mode === 'light'
+            ? {
+              backgroundColor: alpha('#ffffff', 0.22),
+              color: '#ffffff',
+            }
+            : {
+              backgroundColor: alpha(t.palette.primary.main, 0.22),
+              color: t.palette.primary.main,
+            })}
+        >
           <DirectionsCarIcon sx={{ fontSize: 26 }} />
         </Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: '1.5rem', lineHeight: 1.1 }}>{stats.total}</Typography>
-          <Typography sx={{ fontSize: '0.7rem', opacity: 0.85 }}>{t('deviceTitle')}</Typography>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            sx={{
+              fontWeight: 600,
+              fontSize: '1.5rem',
+              lineHeight: 1.15,
+              letterSpacing: '-0.02em',
+              color: theme.palette.mode === 'light' ? '#ffffff' : 'text.primary',
+            }}
+          >
+            {stats.total}
+          </Typography>
+          <Typography
+            sx={{
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              mt: 0.25,
+              color: theme.palette.mode === 'light' ? alpha('#ffffff', 0.88) : 'text.secondary',
+            }}
+          >
+            {t('deviceTitle')}
+          </Typography>
         </Box>
         <Tooltip title={t('reportTitle')}>
           <IconButton
             size="small"
-            sx={{ color: 'rgba(255,255,255,0.7)' }}
+            sx={{
+              color: theme.palette.mode === 'light' ? alpha('#ffffff', 0.88) : 'text.secondary',
+            }}
             onClick={(e) => { e.stopPropagation(); navigate('/reports/combined'); }}
           >
             <OpenInNewIcon fontSize="small" />
@@ -883,95 +1006,34 @@ const Dashboard = ({ onFilterMap }) => {
               className={deviceRowClassName(d.id)}
               onClick={() => selectDevice(d.id)}
             >
-              <Box sx={{ width: 20, height: 20, borderRadius: 6, background: idx === 0 ? 'linear-gradient(135deg, #d32f2f, #f44336)' : 'rgba(0,0,0,0.06)', color: idx === 0 ? '#fff' : 'text.secondary', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700 }}>
+              <Box
+                sx={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 6,
+                  background: idx === 0
+                    ? `linear-gradient(135deg, ${theme.palette.error.dark}, ${theme.palette.error.main})`
+                    : alpha(theme.palette.text.primary, 0.06),
+                  color: idx === 0 ? theme.palette.error.contrastText : 'text.secondary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.6rem',
+                  fontWeight: 700,
+                }}
+              >
                 {idx + 1}
               </Box>
               <Typography className={classes.deviceName}>{d.name}</Typography>
-              <Typography className={classes.deviceBadge} sx={{ background: idx === 0 ? '#ffebee' : 'rgba(0,0,0,0.04)', color: idx === 0 ? '#d32f2f' : 'text.primary' }}>
+              <Typography
+                className={classes.deviceBadge}
+                sx={{
+                  background: idx === 0 ? alpha(theme.palette.error.main, 0.12) : alpha(theme.palette.text.primary, 0.06),
+                  color: idx === 0 ? theme.palette.error.main : 'text.primary',
+                }}
+              >
                 {formatSpeed(d.speed, speedUnit, t)}
               </Typography>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {/* Low battery devices */}
-      {stats.lowBatteryDevices.length > 0 && (
-        <Box className={classes.section}>
-          <Box className={classes.sectionHeader}>
-            <Typography className={classes.sectionTitle}>
-              <BatteryAlertIcon sx={{ fontSize: 14, color: '#d32f2f' }} />
-              <span style={{ color: '#d32f2f' }}>{t('positionBatteryLevel')}</span>
-            </Typography>
-            <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
-              {stats.lowBattery} {t('deviceTitle').toLowerCase()}
-            </Typography>
-          </Box>
-          {stats.lowBatteryDevices.map((d) => (
-            <Box
-              key={d.id}
-              className={deviceRowClassName(d.id)}
-              onClick={() => selectDevice(d.id)}
-            >
-              {d.level <= 20
-                ? <Battery20Icon sx={{ fontSize: 16, color: '#d32f2f' }} />
-                : <BatteryFullIcon sx={{ fontSize: 16, color: '#ed6c02' }} />}
-              <Typography className={classes.deviceName}>{d.name}</Typography>
-              <Typography className={classes.deviceBadge} sx={{ background: d.level <= 10 ? '#ffebee' : d.level <= 20 ? '#fff3e0' : '#fffde7', color: d.level <= 10 ? '#d32f2f' : d.level <= 20 ? '#ed6c02' : '#f9a825' }}>
-                {d.level}%
-              </Typography>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {/* Groups breakdown */}
-      {sortedGroups.length > 0 && (
-        <Box className={classes.section}>
-          <Box className={classes.sectionHeader}>
-            <Typography className={classes.sectionTitle}>{t('settingsGroups')}</Typography>
-          </Box>
-          {sortedGroups.map(([name, count]) => (
-            <Box
-              key={name}
-              className={classes.barRow}
-              onClick={() => openDrillDown(`group-${name}`, name, '#1565c0')}
-              sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
-            >
-              <Typography className={classes.barLabel}>{name}</Typography>
-              <LinearProgress
-                variant="determinate"
-                value={stats.total > 0 ? (count / stats.total) * 100 : 0}
-                className={classes.bar}
-                sx={{ bgcolor: 'rgba(0,0,0,0.06)', '& .MuiLinearProgress-bar': { borderRadius: 4, background: 'linear-gradient(90deg, #1565c0, #42a5f5)' } }}
-              />
-              <Typography className={classes.barValue}>{count}</Typography>
-            </Box>
-          ))}
-        </Box>
-      )}
-
-      {/* Categories */}
-      {sortedCategories.length > 1 && (
-        <Box className={classes.section}>
-          <Box className={classes.sectionHeader}>
-            <Typography className={classes.sectionTitle}>{t('sharedType')}</Typography>
-          </Box>
-          {sortedCategories.map(([name, count]) => (
-            <Box
-              key={name}
-              className={classes.barRow}
-              onClick={() => openDrillDown(`category-${name}`, name, '#00897b')}
-              sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
-            >
-              <Typography className={classes.barLabel}>{name}</Typography>
-              <LinearProgress
-                variant="determinate"
-                value={stats.total > 0 ? (count / stats.total) * 100 : 0}
-                className={classes.bar}
-                sx={{ bgcolor: 'rgba(0,0,0,0.06)', '& .MuiLinearProgress-bar': { borderRadius: 4, background: 'linear-gradient(90deg, #00897b, #4dd0e1)' } }}
-              />
-              <Typography className={classes.barValue}>{count}</Typography>
             </Box>
           ))}
         </Box>
@@ -993,31 +1055,37 @@ const Dashboard = ({ onFilterMap }) => {
           {/* Summary row */}
           <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
             <Box
-              onClick={() => openDrillDown('insideGeofence', `${t('sharedGeofences')} — Inside`, '#00897b')}
-              sx={(theme) => ({
-                flex: 1, borderRadius: 10, padding: theme.spacing(1),
-                background: theme.palette.mode === 'dark' ? 'rgba(0,137,123,0.12)' : 'rgba(0,137,123,0.06)',
-                textAlign: 'center', cursor: 'pointer',
+              onClick={() => openDrillDown('insideGeofence', `${t('sharedGeofences')} — Inside`, dash.geofence)}
+              sx={{
+                flex: 1,
+                borderRadius: 10,
+                padding: theme.spacing(1),
+                background: alpha(dash.geofence, theme.palette.mode === 'dark' ? 0.14 : 0.08),
+                textAlign: 'center',
+                cursor: 'pointer',
                 transition: 'transform 0.15s',
-                '&:hover': { transform: 'scale(1.03)' },
-              })}
+                '&:hover': { transform: 'scale(1.02)' },
+              }}
             >
-              <PlaceIcon sx={{ fontSize: 16, color: '#00897b', mb: 0.25 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#00897b' }}>{stats.devicesInAnyGeofence}</Typography>
+              <PlaceIcon sx={{ fontSize: 16, color: dash.geofence, mb: 0.25 }} />
+              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: dash.geofence }}>{stats.devicesInAnyGeofence}</Typography>
               <Typography sx={{ fontSize: '0.55rem', color: 'text.secondary' }}>Inside</Typography>
             </Box>
             <Box
-              onClick={() => openDrillDown('outsideGeofence', `${t('sharedGeofences')} — Outside`, '#ed6c02')}
-              sx={(theme) => ({
-                flex: 1, borderRadius: 10, padding: theme.spacing(1),
-                background: theme.palette.mode === 'dark' ? 'rgba(237,108,2,0.12)' : 'rgba(237,108,2,0.06)',
-                textAlign: 'center', cursor: 'pointer',
+              onClick={() => openDrillDown('outsideGeofence', `${t('sharedGeofences')} — Outside`, dash.unknown)}
+              sx={{
+                flex: 1,
+                borderRadius: 10,
+                padding: theme.spacing(1),
+                background: alpha(dash.unknown, theme.palette.mode === 'dark' ? 0.14 : 0.08),
+                textAlign: 'center',
+                cursor: 'pointer',
                 transition: 'transform 0.15s',
-                '&:hover': { transform: 'scale(1.03)' },
-              })}
+                '&:hover': { transform: 'scale(1.02)' },
+              }}
             >
-              <NearMeIcon sx={{ fontSize: 16, color: '#ed6c02', mb: 0.25 }} />
-              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: '#ed6c02' }}>{stats.devicesOutsideGeofences}</Typography>
+              <NearMeIcon sx={{ fontSize: 16, color: dash.unknown, mb: 0.25 }} />
+              <Typography sx={{ fontWeight: 700, fontSize: '0.95rem', color: dash.unknown }}>{stats.devicesOutsideGeofences}</Typography>
               <Typography sx={{ fontSize: '0.55rem', color: 'text.secondary' }}>Outside</Typography>
             </Box>
           </Box>
@@ -1027,7 +1095,7 @@ const Dashboard = ({ onFilterMap }) => {
             <Box
               key={gf.id}
               className={classes.barRow}
-              onClick={() => openDrillDown(`geofence-${gf.id}`, gf.name, '#00897b')}
+              onClick={() => openDrillDown(`geofence-${gf.id}`, gf.name, dash.geofence)}
               sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
             >
               <Typography className={classes.barLabel} sx={{ minWidth: 72 }}>{gf.name}</Typography>
@@ -1036,16 +1104,16 @@ const Dashboard = ({ onFilterMap }) => {
                 value={stats.total > 0 ? (gf.deviceCount / stats.total) * 100 : 0}
                 className={classes.bar}
                 sx={{
-                  bgcolor: 'rgba(0,0,0,0.06)',
+                  bgcolor: alpha(theme.palette.text.primary, 0.06),
                   '& .MuiLinearProgress-bar': {
                     borderRadius: 4,
                     background: gf.deviceCount > 0
-                      ? 'linear-gradient(90deg, #00897b, #4dd0e1)'
-                      : 'rgba(0,0,0,0.1)',
+                      ? `linear-gradient(90deg, ${dash.geofence}, ${dash.geofenceLight})`
+                      : alpha(theme.palette.text.primary, 0.08),
                   },
                 }}
               />
-              <Typography className={classes.barValue} sx={{ color: gf.deviceCount > 0 ? '#00897b' : 'text.secondary' }}>
+              <Typography className={classes.barValue} sx={{ color: gf.deviceCount > 0 ? dash.geofence : 'text.secondary' }}>
                 {gf.deviceCount}
               </Typography>
             </Box>
@@ -1064,7 +1132,11 @@ const Dashboard = ({ onFilterMap }) => {
           </Box>
           {stats.staleDevices.map((d) => {
             const connectionStatus = d.status || 'unknown';
-            const statusColor = connectionStatus === 'online' ? '#2e7d32' : connectionStatus === 'offline' ? '#d32f2f' : '#ed6c02';
+            const statusColor = connectionStatus === 'online'
+              ? dash.online
+              : connectionStatus === 'offline'
+                ? dash.offline
+                : dash.unknown;
             return (
               <Box
                 key={d.id}
@@ -1099,6 +1171,110 @@ const Dashboard = ({ onFilterMap }) => {
               </Box>
             );
           })}
+        </Box>
+      )}
+
+      {/* Low battery devices */}
+      {stats.lowBatteryDevices.length > 0 && (
+        <Box className={classes.section}>
+          <Box className={classes.sectionHeader}>
+            <Typography className={classes.sectionTitle} sx={{ color: theme.palette.error.main }}>
+              <BatteryAlertIcon sx={{ fontSize: 14, color: 'inherit' }} />
+              {t('positionBatteryLevel')}
+            </Typography>
+            <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }}>
+              {stats.lowBattery} {t('deviceTitle').toLowerCase()}
+            </Typography>
+          </Box>
+          {stats.lowBatteryDevices.map((d) => (
+            <Box
+              key={d.id}
+              className={deviceRowClassName(d.id)}
+              onClick={() => selectDevice(d.id)}
+            >
+              {d.level <= 20
+                ? <Battery20Icon sx={{ fontSize: 16, color: theme.palette.error.main }} />
+                : <BatteryFullIcon sx={{ fontSize: 16, color: theme.palette.warning.main }} />}
+              <Typography className={classes.deviceName}>{d.name}</Typography>
+              <Typography
+                className={classes.deviceBadge}
+                sx={{
+                  background: d.level <= 10
+                    ? alpha(theme.palette.error.main, 0.12)
+                    : d.level <= 20
+                      ? alpha(theme.palette.warning.main, 0.14)
+                      : alpha(theme.palette.warning.main, 0.1),
+                  color: d.level <= 10 ? theme.palette.error.main : theme.palette.warning.dark,
+                }}
+              >
+                {d.level}%
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {/* Groups breakdown */}
+      {sortedGroups.length > 0 && (
+        <Box className={classes.section}>
+          <Box className={classes.sectionHeader}>
+            <Typography className={classes.sectionTitle}>{t('settingsGroups')}</Typography>
+          </Box>
+          {sortedGroups.map(([name, count]) => (
+            <Box
+              key={name}
+              className={classes.barRow}
+              onClick={() => openDrillDown(`group-${name}`, name, dash.primary)}
+              sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+            >
+              <Typography className={classes.barLabel}>{name}</Typography>
+              <LinearProgress
+                variant="determinate"
+                value={stats.total > 0 ? (count / stats.total) * 100 : 0}
+                className={classes.bar}
+                sx={{
+                  bgcolor: alpha(theme.palette.text.primary, 0.06),
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 4,
+                    background: `linear-gradient(90deg, ${dash.primary}, ${dash.primaryLight})`,
+                  },
+                }}
+              />
+              <Typography className={classes.barValue}>{count}</Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {/* Categories */}
+      {sortedCategories.length > 1 && (
+        <Box className={classes.section}>
+          <Box className={classes.sectionHeader}>
+            <Typography className={classes.sectionTitle}>{t('sharedType')}</Typography>
+          </Box>
+          {sortedCategories.map(([name, count]) => (
+            <Box
+              key={name}
+              className={classes.barRow}
+              onClick={() => openDrillDown(`category-${name}`, name, dash.info)}
+              sx={{ cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } }}
+            >
+              <Typography className={classes.barLabel}>{name}</Typography>
+              <LinearProgress
+                variant="determinate"
+                value={stats.total > 0 ? (count / stats.total) * 100 : 0}
+                className={classes.bar}
+                sx={{
+                  bgcolor: alpha(theme.palette.text.primary, 0.06),
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 4,
+                    background: `linear-gradient(90deg, ${dash.info}, ${dash.infoLight})`,
+                  },
+                }}
+              />
+              <Typography className={classes.barValue}>{count}</Typography>
+            </Box>
+          ))}
         </Box>
       )}
 

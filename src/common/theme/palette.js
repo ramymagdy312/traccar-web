@@ -5,19 +5,19 @@ const validatedColor = (color) => (/^#([0-9A-Fa-f]{3}){1,2}$/.test(color) ? colo
 export default (server, darkMode) => ({
   mode: darkMode ? 'dark' : 'light',
   background: {
-    default: darkMode ? '#0f1924' : '#f0f4f8',
+    default: darkMode ? '#0f1924' : '#f8f9fa',
     paper: darkMode ? '#1a2634' : '#ffffff',
   },
   primary: {
-    main: validatedColor(server?.attributes?.colorPrimary) || (darkMode ? '#5c9eff' : '#1565c0'),
-    light: darkMode ? '#8bbcff' : '#4791db',
-    dark: darkMode ? '#2979ff' : '#003c8f',
+    main: validatedColor(server?.attributes?.colorPrimary) || (darkMode ? '#5c9eff' : '#2b59c3'),
+    light: darkMode ? '#8bbcff' : '#5b7fd6',
+    dark: darkMode ? '#2979ff' : '#1e408f',
     contrastText: '#ffffff',
   },
   secondary: {
-    main: validatedColor(server?.attributes?.colorSecondary) || (darkMode ? '#4dd0e1' : '#00897b'),
-    light: darkMode ? '#88ffff' : '#4ebaaa',
-    dark: darkMode ? '#009faf' : '#005b4f',
+    main: validatedColor(server?.attributes?.colorSecondary) || (darkMode ? '#ce93d8' : '#7b1fa2'),
+    light: darkMode ? '#f3e5f5' : '#9c4dcc',
+    dark: darkMode ? '#8e24aa' : '#4a148c',
     contrastText: '#ffffff',
   },
   success: {
@@ -25,10 +25,10 @@ export default (server, darkMode) => ({
     light: darkMode ? '#98ee99' : '#60ad5e',
   },
   warning: {
-    main: darkMode ? '#ffa726' : '#ed6c02',
+    main: darkMode ? '#ffa726' : '#ef6c00',
   },
   error: {
-    main: darkMode ? '#ef5350' : '#d32f2f',
+    main: darkMode ? '#ef5350' : '#c62828',
   },
   info: {
     main: darkMode ? '#42a5f5' : '#0288d1',

@@ -16,8 +16,8 @@ const useStyles = makeStyles()((theme) => ({
     justifyContent: 'center',
     alignItems: 'center',
     background: theme.palette.mode === 'dark'
-      ? 'linear-gradient(180deg, #0d2137 0%, #122a44 50%, #0a1929 100%)'
-      : `linear-gradient(180deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 50%, ${theme.palette.primary.dark} 100%)`,
+      ? theme.palette.primary.dark
+      : theme.palette.primary.main,
     paddingBottom: theme.spacing(5),
     width: theme.dimensions.sidebarWidth,
     position: 'relative',
@@ -28,16 +28,6 @@ const useStyles = makeStyles()((theme) => ({
     [theme.breakpoints.down('sm')]: {
       width: '0px',
     },
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      top: '-50%',
-      left: '-50%',
-      width: '200%',
-      height: '200%',
-      background: 'radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 60%)',
-      animation: 'none',
-    },
   },
   paper: {
     display: 'flex',
@@ -46,8 +36,8 @@ const useStyles = makeStyles()((theme) => ({
     alignItems: 'center',
     flex: 1,
     boxShadow: theme.palette.mode === 'dark'
-      ? '-2px 0 24px rgba(0,0,0,0.5)'
-      : '-2px 0 24px rgba(0,0,0,0.08)',
+      ? '-1px 0 16px rgba(0,0,0,0.35)'
+      : '-1px 0 12px rgba(0,0,0,0.06)',
     [theme.breakpoints.up('lg')]: {
       padding: theme.spacing(0, 25, 0, 0),
     },
@@ -67,7 +57,7 @@ const LoginLayout = ({ children }) => {
     <main className={classes.root}>
       <div className={classes.sidebar}>
         {!useMediaQuery(theme.breakpoints.down('lg')) && (
-          <LogoImage color={theme.palette.secondary.contrastText} />
+          <LogoImage variant="onDark" />
         )}
       </div>
       <Paper className={classes.paper}>
