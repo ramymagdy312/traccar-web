@@ -629,5 +629,6 @@
     "categoryVan": "รถตู้",
     "categoryScooter": "สกู๊ตเตอร์",
     "maintenanceStart": "เริ่มต้น",
-    "maintenancePeriod": "ระยะเวลา"
+    "maintenancePeriod": "ระยะเวลา",
+    "reportSpeedExcess": "ความเร็วเกิน"
 }

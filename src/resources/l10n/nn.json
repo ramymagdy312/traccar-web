@@ -629,5 +629,6 @@
     "categoryVan": "Varebil",
     "categoryScooter": "Scooter",
     "maintenanceStart": "Start",
-    "maintenancePeriod": "Periode"
+    "maintenancePeriod": "Periode",
+    "reportSpeedExcess": "Fartsgrense overstige"
 }

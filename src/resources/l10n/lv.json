@@ -629,5 +629,6 @@
     "categoryVan": "Busiņš",
     "categoryScooter": "Skrejritenis",
     "maintenanceStart": "Sākt",
-    "maintenancePeriod": "Periods"
+    "maintenancePeriod": "Periods",
+    "reportSpeedExcess": "Ātruma limits pārsniegts"
 }

@@ -629,5 +629,6 @@
     "categoryVan": "Վան",
     "categoryScooter": "Սկուտեր",
     "maintenanceStart": "Ստարտ",
-    "maintenancePeriod": "Ժամանակաշրջան"
+    "maintenancePeriod": "Ժամանակաշրջան",
+    "reportSpeedExcess": "Speed limit exceeded"
 }

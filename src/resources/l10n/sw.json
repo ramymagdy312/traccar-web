@@ -629,5 +629,6 @@
     "categoryVan": "Gari",
     "categoryScooter": "Pikipiki",
     "maintenanceStart": "Anza",
-    "maintenancePeriod": "Kipindi"
+    "maintenancePeriod": "Kipindi",
+    "reportSpeedExcess": "Kikomo cha kifaa kimepitwa"
 }

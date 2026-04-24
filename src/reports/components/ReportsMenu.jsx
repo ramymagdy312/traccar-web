@@ -80,7 +80,7 @@ const ReportsMenu = () => {
           selected={location.pathname === '/reports/stops'}
         />
         <MenuItem
-          title={t('reportOverSpeed')}
+          title={t('reportSpeedExcess')}
           link={buildLink('/reports/overspeed')}
           icon={<SpeedIcon />}
           selected={location.pathname === '/reports/overspeed'}

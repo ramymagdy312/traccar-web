@@ -629,5 +629,6 @@
     "categoryVan": "Κλειστό Φορτηγό",
     "categoryScooter": "Σκούτερ",
     "maintenanceStart": "Εκκίνηση",
-    "maintenancePeriod": "Περίοδος"
+    "maintenancePeriod": "Περίοδος",
+    "reportSpeedExcess": "Υπέρβαση ορίου ταχύτητας"
 }

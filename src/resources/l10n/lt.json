@@ -629,5 +629,6 @@
     "categoryVan": "Autobusiuskas",
     "categoryScooter": "Mopedas",
     "maintenanceStart": "Pradėti",
-    "maintenancePeriod": "Periodas"
+    "maintenancePeriod": "Periodas",
+    "reportSpeedExcess": "Greičio limitas viršytas"
 }

@@ -629,5 +629,6 @@
     "categoryVan": "Van",
     "categoryScooter": "Roller",
     "maintenanceStart": "Start",
-    "maintenancePeriod": "Periode"
+    "maintenancePeriod": "Periode",
+    "reportSpeedExcess": "Tempolimit überschritten"
 }

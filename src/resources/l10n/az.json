@@ -629,5 +629,6 @@
     "categoryVan": "Furqon",
     "categoryScooter": "Scooter",
     "maintenanceStart": "Başlamaq",
-    "maintenancePeriod": "Dövr"
+    "maintenancePeriod": "Dövr",
+    "reportSpeedExcess": "Sürət həddi aşıldı"
 }

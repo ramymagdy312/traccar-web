@@ -629,5 +629,6 @@
     "categoryVan": "Комбе",
     "categoryScooter": "Скутер",
     "maintenanceStart": "Почеток",
-    "maintenancePeriod": "Период"
+    "maintenancePeriod": "Период",
+    "reportSpeedExcess": "Брзината е над дозволената"
 }

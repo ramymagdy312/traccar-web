@@ -629,5 +629,6 @@
     "categoryVan": "Van",
     "categoryScooter": "Mobilet",
     "maintenanceStart": "Başlat",
-    "maintenancePeriod": "Dönem"
+    "maintenancePeriod": "Dönem",
+    "reportSpeedExcess": "Hız limiti aşıldı"
 }

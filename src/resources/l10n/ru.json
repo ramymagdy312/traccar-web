@@ -629,5 +629,6 @@
     "categoryVan": "Фургон",
     "categoryScooter": "Скутер",
     "maintenanceStart": "Начало",
-    "maintenancePeriod": "Период"
+    "maintenancePeriod": "Период",
+    "reportSpeedExcess": "Превышено ограничение скорости"
 }

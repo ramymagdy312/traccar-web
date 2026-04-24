@@ -629,5 +629,6 @@
     "categoryVan": "Kombi",
     "categoryScooter": "Skuter",
     "maintenanceStart": "Početak",
-    "maintenancePeriod": "Period"
+    "maintenancePeriod": "Period",
+    "reportSpeedExcess": "Granica brzine je prekoračena"
 }

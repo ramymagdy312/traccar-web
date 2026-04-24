@@ -629,5 +629,6 @@
     "categoryVan": "バン",
     "categoryScooter": "スクーター",
     "maintenanceStart": "メンテナンス開始",
-    "maintenancePeriod": "メンテナンス終了"
+    "maintenancePeriod": "メンテナンス終了",
+    "reportSpeedExcess": "速度制限を超過"
 }

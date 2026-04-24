@@ -629,5 +629,6 @@
     "categoryVan": "Van",
     "categoryScooter": "Scooter",
     "maintenanceStart": "Départ",
-    "maintenancePeriod": "Période"
+    "maintenancePeriod": "Période",
+    "reportSpeedExcess": "Vitesse limite dépassée"
 }

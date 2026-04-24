@@ -629,5 +629,6 @@
     "categoryVan": "ون",
     "categoryScooter": "اسکوتر",
     "maintenanceStart": "شروع",
-    "maintenancePeriod": "بازه"
+    "maintenancePeriod": "بازه",
+    "reportSpeedExcess": "سرعت از حد مجاز فراتر رفت"
 }

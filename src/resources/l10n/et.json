@@ -629,5 +629,6 @@
     "categoryVan": "Kaubik",
     "categoryScooter": "Tõukeratas",
     "maintenanceStart": "Algus",
-    "maintenancePeriod": "Periood"
+    "maintenancePeriod": "Periood",
+    "reportSpeedExcess": "Kiirusepiirang ületatud"
 }

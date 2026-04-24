@@ -629,5 +629,6 @@
     "categoryVan": "වෑන්",
     "categoryScooter": "ස්කූටරය",
     "maintenanceStart": "ආරම්භය",
-    "maintenancePeriod": "කාලය"
+    "maintenancePeriod": "කාලය",
+    "reportSpeedExcess": "වේග සීමාව ඉක්මවා ඇත"
 }

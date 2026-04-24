@@ -629,5 +629,6 @@
     "categoryVan": "Busje",
     "categoryScooter": "Scooter",
     "maintenanceStart": "Start",
-    "maintenancePeriod": "Periode"
+    "maintenancePeriod": "Periode",
+    "reportSpeedExcess": "Snelheidslimiet overschreden"
 }

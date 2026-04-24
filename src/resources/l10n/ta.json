@@ -629,5 +629,6 @@
     "categoryVan": "வேன் வாகனம் ",
     "categoryScooter": "Scooter",
     "maintenanceStart": "துவக்கு ",
-    "maintenancePeriod": "காலம்"
+    "maintenancePeriod": "காலம்",
+    "reportSpeedExcess": "வேகம் வரம்பை மீறிவிட்டது"
 }

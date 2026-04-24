@@ -629,5 +629,6 @@
     "categoryVan": "밴",
     "categoryScooter": "오토바이",
     "maintenanceStart": "시작",
-    "maintenancePeriod": "주기"
+    "maintenancePeriod": "주기",
+    "reportSpeedExcess": "속도 제한 초과"
 }

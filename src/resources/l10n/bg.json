@@ -629,5 +629,6 @@
     "categoryVan": "Ван",
     "categoryScooter": "Скутер",
     "maintenanceStart": "Старт",
-    "maintenancePeriod": "Период"
+    "maintenancePeriod": "Период",
+    "reportSpeedExcess": "Ограничението на скоростта превишено"
 }

@@ -629,5 +629,6 @@
     "categoryVan": "ფურგონი",
     "categoryScooter": "სკუტერი",
     "maintenanceStart": "დაწყება",
-    "maintenancePeriod": "პერიოდი"
+    "maintenancePeriod": "პერიოდი",
+    "reportSpeedExcess": "სიჩქარის ლიმიტი გადაჭარბებულია"
 }

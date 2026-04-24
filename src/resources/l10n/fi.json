@@ -629,5 +629,6 @@
     "categoryVan": "Pakettiauto",
     "categoryScooter": "Potkulauta",
     "maintenanceStart": "Alku",
-    "maintenancePeriod": "Huoltoväli"
+    "maintenancePeriod": "Huoltoväli",
+    "reportSpeedExcess": "Nopeusrajoitus ylitetty"
 }

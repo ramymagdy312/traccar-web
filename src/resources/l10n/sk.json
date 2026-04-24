@@ -629,5 +629,6 @@
     "categoryVan": "Dodávka",
     "categoryScooter": "Skúter",
     "maintenanceStart": "Štart",
-    "maintenancePeriod": "Obdobie"
+    "maintenancePeriod": "Obdobie",
+    "reportSpeedExcess": "Prekročená rýchlosť"
 }

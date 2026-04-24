@@ -629,5 +629,6 @@
     "categoryVan": "Furgoneta",
     "categoryScooter": "Moto",
     "maintenanceStart": "Iniciar",
-    "maintenancePeriod": "Período"
+    "maintenancePeriod": "Período",
+    "reportSpeedExcess": "Excedido el límite de Velocidad"
 }

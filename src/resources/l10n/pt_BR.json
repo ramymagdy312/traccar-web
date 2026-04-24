@@ -629,5 +629,6 @@
     "categoryVan": "Van",
     "categoryScooter": "Patinete Elétrico",
     "maintenanceStart": "Começar",
-    "maintenancePeriod": "Período"
+    "maintenancePeriod": "Período",
+    "reportSpeedExcess": "Excedido o limite de velocidade"
 }

@@ -629,5 +629,6 @@
     "categoryVan": "厢式货车",
     "categoryScooter": "小型摩托车",
     "maintenanceStart": "开启",
-    "maintenancePeriod": "时段"
+    "maintenancePeriod": "时段",
+    "reportSpeedExcess": "超速限制"
 }

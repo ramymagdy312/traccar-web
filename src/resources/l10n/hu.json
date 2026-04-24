@@ -629,5 +629,6 @@
     "categoryVan": "Teherkocsi",
     "categoryScooter": "Roller",
     "maintenanceStart": "Start",
-    "maintenancePeriod": "Periódus"
+    "maintenancePeriod": "Periódus",
+    "reportSpeedExcess": "Sebességhatár túllépés"
 }

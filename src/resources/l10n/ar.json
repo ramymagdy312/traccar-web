@@ -629,5 +629,6 @@
     "categoryVan": "نقل",
     "categoryScooter": "سكوتر",
     "maintenanceStart": "بداية",
-    "maintenancePeriod": "فترة"
+    "maintenancePeriod": "فترة",
+    "reportSpeedExcess": "تجاوز للسرعة"
 }

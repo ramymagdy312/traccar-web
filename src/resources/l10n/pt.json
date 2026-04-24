@@ -629,5 +629,6 @@
     "categoryVan": "Caravana",
     "categoryScooter": "Scooter",
     "maintenanceStart": "Iniciar",
-    "maintenancePeriod": "Período"
+    "maintenancePeriod": "Período",
+    "reportSpeedExcess": "Atingido o Excesso de Velocidade"
 }

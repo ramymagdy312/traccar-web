@@ -629,5 +629,6 @@
     "categoryVan": "Paneelwa",
     "categoryScooter": "Moffiebike",
     "maintenanceStart": "Aan",
-    "maintenancePeriod": "Periode"
+    "maintenancePeriod": "Periode",
+    "reportSpeedExcess": "Spoedgrens oortree"
 }

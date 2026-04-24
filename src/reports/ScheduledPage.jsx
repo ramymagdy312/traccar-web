@@ -52,7 +52,7 @@ const ScheduledPage = () => {
       case 'stops':
         return t('reportStops');
       case 'overSpeed':
-        return t('reportOverSpeed');
+        return t('reportSpeedExcess');
       default:
         return type;
     }

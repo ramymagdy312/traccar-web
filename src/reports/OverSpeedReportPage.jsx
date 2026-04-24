@@ -187,7 +187,7 @@ const OverSpeedReportPage = () => {
   };
 
   return (
-    <PageLayout menu={<ReportsMenu />} breadcrumbs={['reportTitle', 'reportOverSpeed']}>
+    <PageLayout menu={<ReportsMenu />} breadcrumbs={['reportTitle', 'reportSpeedExcess']}>
       <div className={classes.container}>
         {selectedItem && (
           <div className={classes.containerMap}>
