@@ -1,14 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
-  IconButton, Table, TableBody, TableCell, TableHead, TableRow,
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import LocationSearchingIcon from '@mui/icons-material/LocationSearching';
+import RouteIcon from '@mui/icons-material/Route';
+
 import {
-  formatDistance, formatSpeed, formatTime, formatNumericHours,
+  formatDistance,
+  formatSpeed,
+  formatTime,
+  formatNumericHours,
 } from '../common/util/formatter';
+
 import ReportFilter from './components/ReportFilter';
 import { useAttributePreference } from '../common/util/preferences';
 import { useTranslation } from '../common/components/LocalizationProvider';
@@ -27,11 +42,10 @@ import MapCamera from '../map/MapCamera';
 import MapGeofence from '../map/MapGeofence';
 import scheduleReport from './common/scheduleReport';
 import MapScale from '../map/MapScale';
-import { MenuItem, Select, InputLabel, FormControl } from '@mui/material';
 import fetchOrThrow from '../common/util/fetchOrThrow';
+import { deviceEquality } from '../common/util/deviceEquality';
 
 const columnsArray = [
-  ['deviceName', 'sharedDevice'],
   ['startTime', 'reportStartTime'],
   ['endTime', 'reportEndTime'],
   ['startAddress', 'reportStartAddress'],
@@ -45,6 +59,13 @@ const columnsArray = [
 
 const columnsMap = new Map(columnsArray);
 
+const speedOptions = [
+  { label: '90 km/h', value: 48.596 },
+  { label: '100 km/h', value: 53.996 },
+  { label: '110 km/h', value: 59.395 },
+  { label: '120 km/h', value: 64.795 },
+];
+
 const OverSpeedReportPage = () => {
   const navigate = useNavigate();
   const { classes } = useReportStyles();
@@ -53,22 +74,40 @@ const OverSpeedReportPage = () => {
   const distanceUnit = useAttributePreference('distanceUnit');
   const speedUnit = useAttributePreference('speedUnit');
 
-  const devices = useSelector((state) => state.devices.items);
+  const devices = useSelector((state) => state.devices.items, deviceEquality(['id', 'name']));
 
-  const [columns, setColumns] = usePersistedState('overSpeedColumns', columnsArray.map(([key]) => key));
+  const [columns, setColumns] = usePersistedState(
+    'overSpeedColumns',
+    columnsArray.map(([key]) => key),
+  );
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [route, setRoute] = useState(null);
-  const speedOptions = [
-    { label: '90 km/h', value: 48.596 }, // 90 km/h ≈ 48.596 knots
-    { label: '100 km/h', value: 53.996 }, // 100 km/h ≈ 53.996 knots
-    { label: '110 km/h', value: 59.395 }, // 110 km/h ≈ 59.395 knots
-    { label: '120 km/h', value: 64.795 }  // 120 km/h ≈ 64.795 knots
-  ];
   const [speedLimit, setSpeedLimit] = useState(speedOptions[1].value);
-  
+
+  const speedLimitFilter = useMemo(() => (
+    <FormControl
+      variant="outlined"
+      size="small"
+      sx={{ width: 150, ml: 2 }}
+    >
+      <InputLabel>{t('sharedSpeedLimit')}</InputLabel>
+      <Select
+        value={speedLimit}
+        onChange={(e) => setSpeedLimit(e.target.value)}
+        label={t('sharedSpeedLimit')}
+      >
+        {speedOptions.map((option) => (
+          <MenuItem key={option.value} value={option.value}>
+            {option.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+  ), [speedLimit, t]);
+
   const createMarkers = () => ([
     {
       latitude: selectedItem.startLat,
@@ -82,54 +121,48 @@ const OverSpeedReportPage = () => {
     },
   ]);
 
-  const createFocusPositions = () => ([
-    {
-      deviceId: selectedItem.deviceId,
-      fixTime: selectedItem.startTime,
-      id: selectedItem.startPositionId || `${selectedItem.deviceId}-start`,
-      latitude: selectedItem.startLat,
-      longitude: selectedItem.startLon,
-      speed: selectedItem.averageSpeed || 0,
-      course: 0,
-    },
-    {
-      deviceId: selectedItem.deviceId,
-      fixTime: selectedItem.endTime,
-      id: selectedItem.endPositionId || `${selectedItem.deviceId}-end`,
-      latitude: selectedItem.endLat,
-      longitude: selectedItem.endLon,
-      speed: selectedItem.maxSpeed || selectedItem.averageSpeed || 0,
-      course: 0,
-    },
-  ]);
-
   useEffectAsync(async () => {
-      if (selectedItem) {
-        const query = new URLSearchParams({
-          deviceId: selectedItem.deviceId,
-          from: selectedItem.startTime,
-          to: selectedItem.endTime,
-        });
-        const response = await fetch(`/api/reports/route?${query.toString()}`, {
-          headers: {
-            Accept: 'application/json',
-          },
-        });
-        if (response.ok) {
-          setRoute(await response.json());
-        } else {
-          throw Error(await response.text());
-        }
+    if (selectedItem) {
+      const query = new URLSearchParams({
+        deviceId: selectedItem.deviceId,
+        from: selectedItem.startTime,
+        to: selectedItem.endTime,
+      });
+
+      const response = await fetch(`/api/reports/route?${query.toString()}`, {
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        setRoute(await response.json());
       } else {
-        setRoute(null);
+        throw Error(await response.text());
       }
-    }, [selectedItem]);
+    } else {
+      setRoute(null);
+    }
+  }, [selectedItem]);
+
+  const navigateToReplay = (item) => {
+    navigate({
+      pathname: '/replay',
+      search: new URLSearchParams({
+        from: item.startTime,
+        to: item.endTime,
+        deviceId: item.deviceId,
+      }).toString(),
+    });
+  };
 
   const buildQuery = (deviceIds, groupIds, from, to) => {
     const query = new URLSearchParams({ from, to });
+
     deviceIds.forEach((deviceId) => query.append('deviceId', deviceId));
     groupIds.forEach((groupId) => query.append('groupId', groupId));
     query.append('speedLimit', speedLimit);
+
     return query;
   };
 
@@ -137,11 +170,16 @@ const OverSpeedReportPage = () => {
     setSelectedItem(null);
     setRoute(null);
     setLoading(true);
+
     try {
       const query = buildQuery(deviceIds, groupIds, from, to);
-      const response = await fetchOrThrow(`/api/reports/overSpeed?${query.toString()}`, {
-        headers: { Accept: 'application/json' },
-      });
+      const response = await fetchOrThrow(
+        `/api/reports/overSpeed?${query.toString()}`,
+        {
+          headers: { Accept: 'application/json' },
+        },
+      );
+
       setItems(await response.json());
     } finally {
       setLoading(false);
@@ -153,9 +191,10 @@ const OverSpeedReportPage = () => {
     window.location.assign(`/api/reports/overSpeed/xlsx?${query.toString()}`);
   });
 
-  const handleSchedule = useCatch(async (deviceIds, groupIds, report) => {
+  const onSchedule = useCatch(async (deviceIds, groupIds, report) => {
     report.type = 'overSpeed';
     const error = await scheduleReport(deviceIds, groupIds, report);
+
     if (error) {
       throw Error(error);
     } else {
@@ -165,14 +204,13 @@ const OverSpeedReportPage = () => {
 
   const formatValue = (item, key) => {
     const value = item[key];
+
     switch (key) {
       case 'deviceName':
         return devices[item.deviceId]?.name || t('sharedUnknown');
       case 'startTime':
       case 'endTime':
         return formatTime(value, 'minutes');
-      case 'startOdometer':
-      case 'endOdometer':
       case 'distance':
         return formatDistance(value, distanceUnit, t);
       case 'averageSpeed':
@@ -181,26 +219,38 @@ const OverSpeedReportPage = () => {
       case 'duration':
         return formatNumericHours(value, t);
       case 'startAddress':
-        return (<AddressValue latitude={item.startLat} longitude={item.startLon} originalAddress={value} />);
+        return (
+          <AddressValue
+            latitude={item.startLat}
+            longitude={item.startLon}
+            originalAddress={value}
+          />
+        );
       case 'endAddress':
-        return (<AddressValue latitude={item.endLat} longitude={item.endLon} originalAddress={value} />);
+        return (
+          <AddressValue
+            latitude={item.endLat}
+            longitude={item.endLon}
+            originalAddress={value}
+          />
+        );
       default:
         return value;
     }
   };
 
   return (
-    <PageLayout menu={<ReportsMenu />} breadcrumbs={['reportTitle', 'reportSpeedExcess']}>
+    <PageLayout menu={<ReportsMenu />} breadcrumbs={['reportTitle', 'reportSpeedExcess']} >
       <div className={classes.container}>
         {selectedItem && (
           <div className={classes.containerMap}>
             <MapView>
               <MapGeofence />
-              {selectedItem && (
+              {route && (
                 <>
+                  <MapRoutePath positions={route} />
                   <MapMarkers markers={createMarkers()} />
-                  {route?.length > 0 && <MapRoutePath positions={route} />}
-                  <MapCamera positions={route?.length > 0 ? route : createFocusPositions()} />
+                  <MapCamera positions={route} />
                 </>
               )}
             </MapView>
@@ -212,55 +262,60 @@ const OverSpeedReportPage = () => {
             <ReportFilter
               onShow={onShow}
               onExport={onExport}
-              onSchedule={handleSchedule}
+              onSchedule={onSchedule}
               deviceType="multiple"
               loading={loading}
             >
-              <ColumnSelect columns={columns} setColumns={setColumns} columnsArray={columnsArray} />
-              <FormControl variant="outlined" size="small" style={{ width: 150, marginLeft: 16 }}>
-                <InputLabel>{t('sharedSpeedLimit')}</InputLabel>
-                <Select
-                  value={speedLimit}
-                  onChange={(e) => setSpeedLimit(e.target.value)}
-                  label={t('sharedSpeedLimit')}
-                >
-                  {speedOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>
-                      {option.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <ColumnSelect columns={columns} setColumns={setColumns}columnsArray={columnsArray} />
+              {speedLimitFilter}
             </ReportFilter>
           </div>
           <Table>
             <TableHead>
               <TableRow>
                 <TableCell className={classes.columnAction} />
-                {columns.map((key) => (<TableCell key={key}>{t(columnsMap.get(key))}</TableCell>))}
+                <TableCell>{t('sharedDevice')}</TableCell>
+                {columns.map((key) => (
+                  <TableCell key={key}>{t(columnsMap.get(key))}</TableCell>
+                ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {!loading ? items.map((item) => (
-                <TableRow key={item.startPositionId} style={{backgroundColor: item.maxSpeed >= 64.795 ? '#ffcccc' : (item.maxSpeed >= 59.395 ? '#ffe5b4' : undefined) }}>
-                  <TableCell className={classes.columnAction} padding="none">
-                    {selectedItem === item ? (
-                      <IconButton size="small" onClick={() => setSelectedItem(null)}>
-                        <GpsFixedIcon fontSize="small" />
-                      </IconButton>
-                    ) : (
-                      <IconButton size="small" onClick={() => setSelectedItem(item)}>
-                        <LocationSearchingIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </TableCell>
-                  {columns.map((key) => (
-                    <TableCell key={key}>
-                      {formatValue(item, key)}
+              {!loading ? (
+                items.map((item) => (
+                  <TableRow key={item.startPositionId} 
+                  sx={{backgroundColor: item.maxSpeed > 64.795? 
+                    'rgba(244, 67, 54, 0.12)' : item.maxSpeed > 59.395? 
+                    'rgba(255, 152, 0, 0.12)' : 'inherit', '& td': {
+                      fontWeight: item.maxSpeed > 59.395 ? 600 : 400, 
+                    },
+                  }}
+                  >
+                    <TableCell className={classes.columnAction} padding="none">
+                      <div className={classes.columnActionContainer}>
+                        {selectedItem === item ? (
+                          <IconButton size="small" onClick={() => setSelectedItem(null)}>
+                            <GpsFixedIcon fontSize="small" />
+                          </IconButton>
+                        ) : (
+                          <IconButton size="small" onClick={() => setSelectedItem(item)}>
+                            <LocationSearchingIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                        <IconButton size="small" onClick={() => navigateToReplay(item)}>
+                          <RouteIcon fontSize="small" />
+                        </IconButton>
+                      </div>
                     </TableCell>
-                  ))}
-                </TableRow>
-              )) : (<TableShimmer columns={columns.length + 1} startAction />)}
+                    <TableCell>{devices[item.deviceId].name}</TableCell>
+                    {columns.map((key) => (
+                      <TableCell key={key}>{formatValue(item, key)}</TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableShimmer columns={columns.length + 2} startAction />
+              )}
             </TableBody>
           </Table>
         </div>

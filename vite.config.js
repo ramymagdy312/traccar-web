@@ -15,7 +15,7 @@ export default defineConfig(() => ({
       },
       '/api': {
         target: 'https://tracker.hoppataxi.com:10443',
-        // target: 'http://localhost:8082',
+        // target: 'http://localhost:808image.png2',
         changeOrigin: true,
         secure: false
       },
