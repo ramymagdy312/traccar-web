@@ -47,7 +47,7 @@ const columnsMap = new Map(columnsArray);
 
 const OverSpeedReportPage = () => {
   const navigate = useNavigate();
-  const classes = useReportStyles();
+  const { classes } = useReportStyles();
   const t = useTranslation();
 
   const distanceUnit = useAttributePreference('distanceUnit');
@@ -76,12 +76,27 @@ const OverSpeedReportPage = () => {
     {
       latitude: selectedItem.startLat,
       longitude: selectedItem.startLon,
-      image: 'default-error',
+      image: 'start-success',
     },
     {
       latitude: selectedItem.endLat,
       longitude: selectedItem.endLon,
-      image: 'default-success',
+      image: 'finish-error',
+    },
+  ]);
+
+  const createFocusPositions = () => ([
+    {
+      deviceId: selectedItem.deviceId,
+      fixTime: selectedItem.startTime,
+      latitude: selectedItem.startLat,
+      longitude: selectedItem.startLon,
+    },
+    {
+      deviceId: selectedItem.deviceId,
+      fixTime: selectedItem.endTime,
+      latitude: selectedItem.endLat,
+      longitude: selectedItem.endLon,
     },
   ]);
 
@@ -116,6 +131,8 @@ const OverSpeedReportPage = () => {
   };
 
   const onShow = useCatch(async ({ deviceIds, groupIds, from, to }) => {
+    setSelectedItem(null);
+    setRoute(null);
     setLoading(true);
     try {
       const query = buildQuery(deviceIds, groupIds, from, to);
@@ -176,11 +193,11 @@ const OverSpeedReportPage = () => {
           <div className={classes.containerMap}>
             <MapView>
               <MapGeofence />
-              {route && (
+              {selectedItem && (
                 <>
-                  <MapRoutePath positions={route} />
                   <MapMarkers markers={createMarkers()} />
-                  <MapCamera positions={route} />
+                  {route?.length > 0 && <MapRoutePath positions={route} />}
+                  <MapCamera positions={route?.length > 0 ? route : createFocusPositions()} />
                 </>
               )}
             </MapView>
