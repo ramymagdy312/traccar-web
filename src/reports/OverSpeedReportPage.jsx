@@ -1,23 +1,38 @@
 import React, { useState, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '@mui/material/styles';
 import {
+  Box,
+  Button,
+  Chip,
   IconButton,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
+  Tooltip,
+  Typography,
   MenuItem,
   Select,
   InputLabel,
   FormControl,
 } from '@mui/material';
+import DirectionsCarIcon from '@mui/icons-material/DirectionsCar';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import LocationSearchingIcon from '@mui/icons-material/LocationSearching';
 import RouteIcon from '@mui/icons-material/Route';
+import SpeedIcon from '@mui/icons-material/Speed';
+import StraightenIcon from '@mui/icons-material/Straighten';
+import TimerIcon from '@mui/icons-material/Timer';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 
 import {
+  formatAddress,
   formatDistance,
   formatSpeed,
   formatTime,
@@ -25,7 +40,7 @@ import {
 } from '../common/util/formatter';
 
 import ReportFilter from './components/ReportFilter';
-import { useAttributePreference } from '../common/util/preferences';
+import { useAttributePreference, usePreference } from '../common/util/preferences';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import PageLayout from '../common/components/PageLayout';
 import ReportsMenu from './components/ReportsMenu';
@@ -43,6 +58,7 @@ import MapGeofence from '../map/MapGeofence';
 import scheduleReport from './common/scheduleReport';
 import MapScale from '../map/MapScale';
 import fetchOrThrow from '../common/util/fetchOrThrow';
+import exportExcel from '../common/util/exportExcel';
 import { deviceEquality } from '../common/util/deviceEquality';
 
 const columnsArray = [
@@ -63,6 +79,7 @@ const speedOptions = [
   { label: '90 km/h', value: 48.596 },
   { label: '100 km/h', value: 53.996 },
   { label: '110 km/h', value: 59.395 },
+  { label: '115 km/h', value: 62.095 },
   { label: '120 km/h', value: 64.795 },
 ];
 
@@ -70,9 +87,11 @@ const OverSpeedReportPage = () => {
   const navigate = useNavigate();
   const { classes } = useReportStyles();
   const t = useTranslation();
+  const theme = useTheme();
 
   const distanceUnit = useAttributePreference('distanceUnit');
   const speedUnit = useAttributePreference('speedUnit');
+  const coordinateFormat = usePreference('coordinateFormat');
 
   const devices = useSelector((state) => state.devices.items, deviceEquality(['id', 'name']));
 
@@ -86,6 +105,26 @@ const OverSpeedReportPage = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [route, setRoute] = useState(null);
   const [speedLimit, setSpeedLimit] = useState(speedOptions[1].value);
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  const toggleGroup = (deviceId) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [deviceId]: !prev[deviceId],
+    }));
+  };
+
+  const setAllExpanded = (expanded) => {
+    setExpandedGroups((prev) => {
+      const next = { ...prev };
+      items.forEach((item) => {
+        next[item.deviceId] = expanded;
+      });
+      return next;
+    });
+  };
+
+  const isGroupExpanded = (deviceId) => expandedGroups[deviceId] === true;
 
   const speedLimitFilter = useMemo(() => (
     <FormControl
@@ -169,6 +208,7 @@ const OverSpeedReportPage = () => {
   const onShow = useCatch(async ({ deviceIds, groupIds, from, to }) => {
     setSelectedItem(null);
     setRoute(null);
+    setExpandedGroups({});
     setLoading(true);
 
     try {
@@ -188,7 +228,53 @@ const OverSpeedReportPage = () => {
 
   const onExport = useCatch(async ({ deviceIds, groupIds, from, to }) => {
     const query = buildQuery(deviceIds, groupIds, from, to);
-    window.location.assign(`/api/reports/overSpeed/xlsx?${query.toString()}`);
+    const response = await fetchOrThrow(`/api/reports/overSpeed?${query.toString()}`, {
+      headers: { Accept: 'application/json' },
+    });
+    const exportItems = await response.json();
+    const sortedExportItems = [...exportItems].sort((a, b) => {
+      const nameA = devices[a.deviceId]?.name || '';
+      const nameB = devices[b.deviceId]?.name || '';
+      const nameCompare = nameA.localeCompare(nameB);
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+    const sheets = new Map();
+    sortedExportItems.forEach((item) => {
+      const deviceName = devices[item.deviceId]?.name || t('sharedUnknown');
+      if (!sheets.has(deviceName)) {
+        sheets.set(deviceName, []);
+      }
+      const row = {};
+      columns.forEach((key) => {
+        const header = t(columnsMap.get(key));
+        if (key === 'startAddress') {
+          row[header] = formatAddress(
+            {
+              address: item.startAddress,
+              latitude: item.startLat,
+              longitude: item.startLon,
+            },
+            coordinateFormat,
+          );
+        } else if (key === 'endAddress') {
+          row[header] = formatAddress(
+            {
+              address: item.endAddress,
+              latitude: item.endLat,
+              longitude: item.endLon,
+            },
+            coordinateFormat,
+          );
+        } else {
+          row[header] = formatValue(item, key);
+        }
+      });
+      sheets.get(deviceName).push(row);
+    });
+    await exportExcel(t('reportSpeedExcess'), 'speed-excess.xlsx', sheets, theme);
   });
 
   const onSchedule = useCatch(async (deviceIds, groupIds, report) => {
@@ -239,6 +325,38 @@ const OverSpeedReportPage = () => {
     }
   };
 
+  const groupedItems = useMemo(() => {
+    const sortedItems = [...items].sort((a, b) => {
+      const nameA = devices[a.deviceId]?.name || '';
+      const nameB = devices[b.deviceId]?.name || '';
+      const nameCompare = nameA.localeCompare(nameB);
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+    const groups = [];
+    let currentGroup = null;
+    sortedItems.forEach((item) => {
+      if (!currentGroup || currentGroup.deviceId !== item.deviceId) {
+        currentGroup = {
+          deviceId: item.deviceId,
+          deviceName: devices[item.deviceId]?.name || t('sharedUnknown'),
+          items: [],
+          maxSpeed: 0,
+          totalDuration: 0,
+          totalDistance: 0,
+        };
+        groups.push(currentGroup);
+      }
+      currentGroup.items.push(item);
+      currentGroup.maxSpeed = Math.max(currentGroup.maxSpeed, item.maxSpeed || 0);
+      currentGroup.totalDuration += item.duration || 0;
+      currentGroup.totalDistance += item.distance || 0;
+    });
+    return groups;
+  }, [items, devices, t]);
+
   return (
     <PageLayout menu={<ReportsMenu />} breadcrumbs={['reportTitle', 'reportSpeedExcess']} >
       <div className={classes.container}>
@@ -270,6 +388,88 @@ const OverSpeedReportPage = () => {
               {speedLimitFilter}
             </ReportFilter>
           </div>
+          {!loading && groupedItems.length > 0 && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 1,
+                px: 2,
+                py: 1,
+                borderBottom: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Chip
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  icon={<DirectionsCarIcon fontSize="small" />}
+                  label={`${t('sharedDevice')}: ${groupedItems.length}`}
+                />
+                <Chip
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  icon={<WarningAmberIcon fontSize="small" />}
+                  label={`${t('reportEvents')}: ${items.length}`}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={<SpeedIcon fontSize="small" />}
+                  label={`${t('reportMaximumSpeed')}: ${formatSpeed(
+                    groupedItems.reduce(
+                      (acc, g) => Math.max(acc, g.maxSpeed),
+                      0,
+                    ),
+                    speedUnit,
+                    t,
+                  )}`}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={<TimerIcon fontSize="small" />}
+                  label={`${t('reportDuration')}: ${formatNumericHours(
+                    groupedItems.reduce((acc, g) => acc + g.totalDuration, 0),
+                    t,
+                  )}`}
+                />
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  icon={<StraightenIcon fontSize="small" />}
+                  label={`${t('sharedDistance')}: ${formatDistance(
+                    groupedItems.reduce((acc, g) => acc + g.totalDistance, 0),
+                    distanceUnit,
+                    t,
+                  )}`}
+                />
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ExpandMoreIcon />}
+                  onClick={() => setAllExpanded(true)}
+                >
+                  {t('sharedShowDetails')}
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ExpandLessIcon />}
+                  onClick={() => setAllExpanded(false)}
+                >
+                  {t('sharedHide')}
+                </Button>
+              </Stack>
+            </Box>
+          )}
           <Table>
             <TableHead>
               <TableRow>
@@ -282,37 +482,137 @@ const OverSpeedReportPage = () => {
             </TableHead>
             <TableBody>
               {!loading ? (
-                items.map((item) => (
-                  <TableRow key={item.startPositionId} 
-                  sx={{backgroundColor: item.maxSpeed > 64.795? 
-                    'rgba(244, 67, 54, 0.12)' : item.maxSpeed > 59.395? 
-                    'rgba(255, 152, 0, 0.12)' : 'inherit', '& td': {
-                      fontWeight: item.maxSpeed > 59.395 ? 600 : 400, 
-                    },
-                  }}
-                  >
-                    <TableCell className={classes.columnAction} padding="none">
-                      <div className={classes.columnActionContainer}>
-                        {selectedItem === item ? (
-                          <IconButton size="small" onClick={() => setSelectedItem(null)}>
-                            <GpsFixedIcon fontSize="small" />
+                groupedItems.flatMap((group) => {
+                  const expanded = isGroupExpanded(group.deviceId);
+                  const headerRow = (
+                    <TableRow
+                      key={`group-${group.deviceId}`}
+                      hover
+                      onClick={() => toggleGroup(group.deviceId)}
+                      sx={{
+                        cursor: 'pointer',
+                        backgroundColor: 'action.hover',
+                        '& td': { borderBottom: '2px solid', borderColor: 'divider' },
+                      }}
+                    >
+                      <TableCell padding="none" sx={{ width: 40 }}>
+                        <Tooltip title={expanded ? t('sharedHide') : t('sharedShowDetails')}>
+                          <IconButton
+                            size="small"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleGroup(group.deviceId);
+                            }}
+                          >
+                            {expanded ? (
+                              <ExpandLessIcon fontSize="small" />
+                            ) : (
+                              <ExpandMoreIcon fontSize="small" />
+                            )}
                           </IconButton>
-                        ) : (
-                          <IconButton size="small" onClick={() => setSelectedItem(item)}>
-                            <LocationSearchingIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                        <IconButton size="small" onClick={() => navigateToReplay(item)}>
-                          <RouteIcon fontSize="small" />
-                        </IconButton>
-                      </div>
-                    </TableCell>
-                    <TableCell>{devices[item.deviceId].name}</TableCell>
-                    {columns.map((key) => (
-                      <TableCell key={key}>{formatValue(item, key)}</TableCell>
-                    ))}
-                  </TableRow>
-                ))
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell colSpan={columns.length + 1}>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            flexWrap: 'wrap',
+                            gap: 1,
+                          }}
+                        >
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <DirectionsCarIcon fontSize="small" color="primary" />
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                              {group.deviceName}
+                            </Typography>
+                          </Stack>
+                          <Stack direction="row" spacing={1} flexWrap="wrap">
+                            <Chip
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              icon={<WarningAmberIcon fontSize="small" />}
+                              label={`${t('reportEvents')}: ${group.items.length}`}
+                            />
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              icon={<SpeedIcon fontSize="small" />}
+                              label={`${t('reportMaximumSpeed')}: ${formatSpeed(
+                                group.maxSpeed,
+                                speedUnit,
+                                t,
+                              )}`}
+                            />
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              icon={<TimerIcon fontSize="small" />}
+                              label={`${t('reportDuration')}: ${formatNumericHours(
+                                group.totalDuration,
+                                t,
+                              )}`}
+                            />
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              icon={<StraightenIcon fontSize="small" />}
+                              label={`${t('sharedDistance')}: ${formatDistance(
+                                group.totalDistance,
+                                distanceUnit,
+                                t,
+                              )}`}
+                            />
+                          </Stack>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                  if (!expanded) {
+                    return [headerRow];
+                  }
+                  return [
+                    headerRow,
+                    ...group.items.map((item) => (
+                      <TableRow
+                        key={item.startPositionId}
+                        sx={{
+                          backgroundColor: item.maxSpeed > 62.095
+                            ? 'rgba(244, 67, 54, 0.51)'
+                            : item.maxSpeed > 59.395
+                              ? 'rgba(255, 153, 0, 0.27)'
+                              : 'inherit',
+                          '& td': {
+                            fontWeight: item.maxSpeed > 59.395 ? 600 : 400,
+                          },
+                        }}
+                      >
+                        <TableCell className={classes.columnAction} padding="none">
+                          <div className={classes.columnActionContainer}>
+                            {selectedItem === item ? (
+                              <IconButton size="small" onClick={() => setSelectedItem(null)}>
+                                <GpsFixedIcon fontSize="small" />
+                              </IconButton>
+                            ) : (
+                              <IconButton size="small" onClick={() => setSelectedItem(item)}>
+                                <LocationSearchingIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                            <IconButton size="small" onClick={() => navigateToReplay(item)}>
+                              <RouteIcon fontSize="small" />
+                            </IconButton>
+                          </div>
+                        </TableCell>
+                        <TableCell>{devices[item.deviceId]?.name || t('sharedUnknown')}</TableCell>
+                        {columns.map((key) => (
+                          <TableCell key={key}>{formatValue(item, key)}</TableCell>
+                        ))}
+                      </TableRow>
+                    )),
+                  ];
+                })
               ) : (
                 <TableShimmer columns={columns.length + 2} startAction />
               )}
