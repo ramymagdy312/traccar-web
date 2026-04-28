@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { IconButton, Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
@@ -25,6 +25,8 @@ import { useRestriction } from '../common/util/permissions';
 import CollectionActions from '../settings/components/CollectionActions';
 import fetchOrThrow from '../common/util/fetchOrThrow';
 import SelectField from '../common/components/SelectField';
+import useReportSort, { sortItems } from './common/useReportSort';
+import SortableTableCell from './common/SortableTableCell';
 
 const PositionsReportPage = () => {
   const navigate = useNavigate();
@@ -45,6 +47,7 @@ const PositionsReportPage = () => {
     : null;
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
+  const { sortConfig, handleSort } = useReportSort();
 
   const selectedIcon = useRef();
 
@@ -60,6 +63,26 @@ const PositionsReportPage = () => {
     },
     [items, setSelectedItem],
   );
+
+  const getSortValue = (item, key) => {
+    const raw = item[key] !== undefined ? item[key] : item.attributes?.[key];
+    if (raw == null) return null;
+    if (key === 'fixTime' || key === 'serverTime' || key === 'deviceTime') {
+      return new Date(raw).getTime();
+    }
+    if (typeof raw === 'number') return raw;
+    if (typeof raw === 'boolean') return raw ? 1 : 0;
+    const numeric = Number(raw);
+    if (!Number.isNaN(numeric) && raw !== '' && raw !== null) {
+      return numeric;
+    }
+    return String(raw);
+  };
+
+  const sortedItems = useMemo(() => {
+    if (!sortConfig?.key || !sortConfig?.direction) return items;
+    return sortItems(items, sortConfig.key, sortConfig.direction, getSortValue);
+  }, [items, sortConfig]);
 
   const onShow = useCatch(async ({ deviceIds, from, to }) => {
     const query = new URLSearchParams({ from, to });
@@ -167,14 +190,21 @@ const PositionsReportPage = () => {
               <TableRow>
                 <TableCell className={classes.columnAction} />
                 {columns.map((key) => (
-                  <TableCell key={key}>{positionAttributes[key]?.name || key}</TableCell>
+                  <SortableTableCell
+                    key={key}
+                    sortKey={key}
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                  >
+                    {positionAttributes[key]?.name || key}
+                  </SortableTableCell>
                 ))}
                 <TableCell className={classes.columnAction} />
               </TableRow>
             </TableHead>
             <TableBody>
               {!loading ? (
-                items.slice(0, 4000).map((item) => (
+                sortedItems.slice(0, 4000).map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className={classes.columnAction} padding="none">
                       {selectedItem === item ? (

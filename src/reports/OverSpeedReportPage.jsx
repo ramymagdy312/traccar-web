@@ -13,6 +13,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TableSortLabel,
   Tooltip,
   Typography,
   MenuItem,
@@ -106,6 +107,52 @@ const OverSpeedReportPage = () => {
   const [route, setRoute] = useState(null);
   const [speedLimit, setSpeedLimit] = useState(speedOptions[1].value);
   const [expandedGroups, setExpandedGroups] = useState({});
+  const [sortConfig, setSortConfig] = useState(null);
+
+  const handleSort = (key) => {
+    setSortConfig((prev) => {
+      if (!prev || prev.key !== key) {
+        return { key, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') {
+        return { key, direction: 'desc' };
+      }
+      return null;
+    });
+  };
+
+  const getSortValue = (item, key) => {
+    switch (key) {
+      case 'deviceName':
+        return devices[item.deviceId]?.name || '';
+      case 'startTime':
+      case 'endTime':
+        return new Date(item[key] || 0).getTime();
+      case 'distance':
+      case 'averageSpeed':
+      case 'maxSpeed':
+      case 'duration':
+        return Number(item[key]) || 0;
+      default:
+        return item[key] ?? '';
+    }
+  };
+
+  const compareValues = (a, b) => {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+    if (typeof a === 'number' && typeof b === 'number') {
+      return a - b;
+    }
+    return String(a).localeCompare(String(b));
+  };
+
+  const sortItems = (list, key, direction) => {
+    if (!key || !direction) return list;
+    const dir = direction === 'desc' ? -1 : 1;
+    return [...list].sort((a, b) => compareValues(getSortValue(a, key), getSortValue(b, key)) * dir);
+  };
 
   const toggleGroup = (deviceId) => {
     setExpandedGroups((prev) => ({
@@ -232,14 +279,27 @@ const OverSpeedReportPage = () => {
       headers: { Accept: 'application/json' },
     });
     const exportItems = await response.json();
+
+    const itemSortKey = sortConfig?.key && sortConfig.key !== 'deviceName'
+      ? sortConfig.key
+      : 'startTime';
+    const itemSortDirection = sortConfig?.key && sortConfig.key !== 'deviceName'
+      ? sortConfig.direction
+      : 'asc';
+    const groupSortDirection = sortConfig?.key === 'deviceName' && sortConfig.direction
+      ? sortConfig.direction
+      : 'asc';
+    const groupDir = groupSortDirection === 'desc' ? -1 : 1;
+    const itemDir = itemSortDirection === 'desc' ? -1 : 1;
+
     const sortedExportItems = [...exportItems].sort((a, b) => {
       const nameA = devices[a.deviceId]?.name || '';
       const nameB = devices[b.deviceId]?.name || '';
-      const nameCompare = nameA.localeCompare(nameB);
+      const nameCompare = compareValues(nameA, nameB) * groupDir;
       if (nameCompare !== 0) {
         return nameCompare;
       }
-      return new Date(a.startTime) - new Date(b.startTime);
+      return compareValues(getSortValue(a, itemSortKey), getSortValue(b, itemSortKey)) * itemDir;
     });
     const sheets = new Map();
     sortedExportItems.forEach((item) => {
@@ -326,36 +386,47 @@ const OverSpeedReportPage = () => {
   };
 
   const groupedItems = useMemo(() => {
-    const sortedItems = [...items].sort((a, b) => {
-      const nameA = devices[a.deviceId]?.name || '';
-      const nameB = devices[b.deviceId]?.name || '';
-      const nameCompare = nameA.localeCompare(nameB);
-      if (nameCompare !== 0) {
-        return nameCompare;
-      }
-      return new Date(a.startTime) - new Date(b.startTime);
-    });
-    const groups = [];
-    let currentGroup = null;
-    sortedItems.forEach((item) => {
-      if (!currentGroup || currentGroup.deviceId !== item.deviceId) {
-        currentGroup = {
-          deviceId: item.deviceId,
-          deviceName: devices[item.deviceId]?.name || t('sharedUnknown'),
+    const groupMap = new Map();
+    items.forEach((item) => {
+      const id = item.deviceId;
+      if (!groupMap.has(id)) {
+        groupMap.set(id, {
+          deviceId: id,
+          deviceName: devices[id]?.name || t('sharedUnknown'),
           items: [],
           maxSpeed: 0,
           totalDuration: 0,
           totalDistance: 0,
-        };
-        groups.push(currentGroup);
+        });
       }
-      currentGroup.items.push(item);
-      currentGroup.maxSpeed = Math.max(currentGroup.maxSpeed, item.maxSpeed || 0);
-      currentGroup.totalDuration += item.duration || 0;
-      currentGroup.totalDistance += item.distance || 0;
+      const group = groupMap.get(id);
+      group.items.push(item);
+      group.maxSpeed = Math.max(group.maxSpeed, item.maxSpeed || 0);
+      group.totalDuration += item.duration || 0;
+      group.totalDistance += item.distance || 0;
     });
+
+    const groups = Array.from(groupMap.values());
+
+    const itemSortKey = sortConfig?.key && sortConfig.key !== 'deviceName'
+      ? sortConfig.key
+      : 'startTime';
+    const itemSortDirection = sortConfig?.key && sortConfig.key !== 'deviceName'
+      ? sortConfig.direction
+      : 'asc';
+
+    groups.forEach((group) => {
+      group.items = sortItems(group.items, itemSortKey, itemSortDirection || 'asc');
+    });
+
+    const groupSortDirection = sortConfig?.key === 'deviceName' && sortConfig.direction
+      ? sortConfig.direction
+      : 'asc';
+    const groupDir = groupSortDirection === 'desc' ? -1 : 1;
+    groups.sort((a, b) => compareValues(a.deviceName, b.deviceName) * groupDir);
+
     return groups;
-  }, [items, devices, t]);
+  }, [items, devices, t, sortConfig]);
 
   return (
     <PageLayout menu={<ReportsMenu />} breadcrumbs={['reportTitle', 'reportSpeedExcess']} >
@@ -474,9 +545,30 @@ const OverSpeedReportPage = () => {
             <TableHead>
               <TableRow>
                 <TableCell className={classes.columnAction} />
-                <TableCell>{t('sharedDevice')}</TableCell>
+                <TableCell
+                  sortDirection={sortConfig?.key === 'deviceName' ? sortConfig.direction : false}
+                >
+                  <TableSortLabel
+                    active={sortConfig?.key === 'deviceName'}
+                    direction={sortConfig?.key === 'deviceName' ? sortConfig.direction || 'asc' : 'asc'}
+                    onClick={() => handleSort('deviceName')}
+                  >
+                    {t('sharedDevice')}
+                  </TableSortLabel>
+                </TableCell>
                 {columns.map((key) => (
-                  <TableCell key={key}>{t(columnsMap.get(key))}</TableCell>
+                  <TableCell
+                    key={key}
+                    sortDirection={sortConfig?.key === key ? sortConfig.direction : false}
+                  >
+                    <TableSortLabel
+                      active={sortConfig?.key === key}
+                      direction={sortConfig?.key === key ? sortConfig.direction || 'asc' : 'asc'}
+                      onClick={() => handleSort(key)}
+                    >
+                      {t(columnsMap.get(key))}
+                    </TableSortLabel>
+                  </TableCell>
                 ))}
               </TableRow>
             </TableHead>
