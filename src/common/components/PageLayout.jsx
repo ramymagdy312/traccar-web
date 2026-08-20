@@ -29,6 +29,8 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
   },
   desktopDrawer: {
     width: miniVariant ? `calc(${theme.spacing(8)} + 1px)` : theme.dimensions.drawerWidthDesktop,
+    display: 'flex',
+    flexDirection: 'column',
     transition: theme.transitions.create('width', {
       easing: theme.transitions.easing.sharp,
       duration: theme.transitions.duration.enteringScreen,
@@ -37,11 +39,17 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
       display: 'none',
     },
     '& .MuiDrawer-paper': {
+      display: 'flex',
+      flexDirection: 'column',
       borderRight: `1px solid ${theme.palette.divider}`,
       background: theme.palette.mode === 'dark'
         ? 'linear-gradient(180deg, #1a2634 0%, #0f1924 100%)'
         : 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
     },
+  },
+  menuScroll: {
+    flex: 1,
+    overflowY: 'auto',
   },
   mobileDrawer: {
     width: theme.dimensions.drawerWidthTablet,
@@ -141,7 +149,7 @@ const PageLayout = ({ menu, breadcrumbs, children }) => {
             </IconButton>
           </Toolbar>
           <Divider />
-          {menu}
+          <div className={classes.menuScroll}>{menu}</div>
         </Drawer>
       ) : (
         <Drawer
@@ -150,7 +158,7 @@ const PageLayout = ({ menu, breadcrumbs, children }) => {
           onClose={() => setOpenDrawer(false)}
           classes={{ paper: classes.mobileDrawer }}
         >
-          {menu}
+          <div className={classes.menuScroll}>{menu}</div>
         </Drawer>
       )}
       {!desktop && (
