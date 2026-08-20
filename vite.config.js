@@ -9,13 +9,13 @@ export default defineConfig(() => ({
     port: 3000,
     proxy: {
       '/api/socket': { 
-        target: 'ws://tracker.hoppataxi.com:3010',
-        // target: 'ws://localhost:8082',
+        // target: 'ws://tracker.hoppataxi.com:3010',
+        target: 'ws://localhost:8082',
         ws: true
       },
       '/api': {
-        target: 'https://tracker.hoppataxi.com:10443',
-        // target: 'http://localhost:808image.png2',
+        // target: 'https://tracker.hoppataxi.com:10443',
+        target: 'http://localhost:8082',
         changeOrigin: true,
         secure: false
       },

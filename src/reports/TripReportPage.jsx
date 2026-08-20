@@ -304,17 +304,6 @@ const TripReportPage = () => {
     navigate('/reports/scheduled');
   });
 
-  const navigateToReplay = (item) => {
-    navigate({
-      pathname: '/replay',
-      search: new URLSearchParams({
-        from: item.startTime,
-        to: item.endTime,
-        deviceId: item.deviceId,
-      }).toString(),
-    });
-  };
-
   return (
     <PageLayout menu={<ReportsMenu />} breadcrumbs={['reportTitle', 'reportTrips']}>
       <div className={classes.container}>
@@ -549,7 +538,17 @@ const TripReportPage = () => {
                                 <LocationSearchingIcon fontSize="small" />
                               </IconButton>
                             )}
-                            <IconButton size="small" onClick={() => navigateToReplay(item)}>
+                            <IconButton
+                              size="small"
+                              component="a"
+                              href={`/replay?${new URLSearchParams({
+                                from: item.startTime,
+                                to: item.endTime,
+                                deviceId: item.deviceId,
+                              }).toString()}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
                               <RouteIcon fontSize="small" />
                             </IconButton>
                           </div>

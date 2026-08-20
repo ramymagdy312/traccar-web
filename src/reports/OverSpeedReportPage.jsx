@@ -231,17 +231,6 @@ const OverSpeedReportPage = () => {
     }
   }, [selectedItem]);
 
-  const navigateToReplay = (item) => {
-    navigate({
-      pathname: '/replay',
-      search: new URLSearchParams({
-        from: item.startTime,
-        to: item.endTime,
-        deviceId: item.deviceId,
-      }).toString(),
-    });
-  };
-
   const buildQuery = (deviceIds, groupIds, from, to) => {
     const query = new URLSearchParams({ from, to });
 
@@ -692,7 +681,17 @@ const OverSpeedReportPage = () => {
                                 <LocationSearchingIcon fontSize="small" />
                               </IconButton>
                             )}
-                            <IconButton size="small" onClick={() => navigateToReplay(item)}>
+                            <IconButton
+                              size="small"
+                              component="a"
+                              href={`/replay?${new URLSearchParams({
+                                from: item.startTime,
+                                to: item.endTime,
+                                deviceId: item.deviceId,
+                              }).toString()}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
                               <RouteIcon fontSize="small" />
                             </IconButton>
                           </div>
