@@ -51,6 +51,8 @@
     "sharedSound": "Notification Sound",
     "sharedType": "Type",
     "sharedDistance": "Distance",
+    "sharedGoTo": "Go to",
+    "sharedLocationDenied": "Location access was denied. Enable location permission to use Go to.",
     "sharedSpeedLimit": "Speed limit",
     "sharedHourAbbreviation": "h",
     "sharedMinuteAbbreviation": "m",

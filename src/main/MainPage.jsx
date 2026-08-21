@@ -7,11 +7,15 @@ import { useDispatch, useSelector } from 'react-redux';
 import Dashboard from './Dashboard';
 import BottomMenu from '../common/components/BottomMenu';
 import StatusCard from '../common/components/StatusCard';
+import GoToRouteBar from '../common/components/GoToRouteBar';
 import { devicesActions } from '../store';
 import EventsDrawer from './EventsDrawer';
 import MainToolbar from './MainToolbar';
 import MainMap from './MainMap';
 import { useAttributePreference } from '../common/util/preferences';
+import { useCatchCallback } from '../reactHelper';
+import { useTranslation } from '../common/components/LocalizationProvider';
+import { fetchGoToRoute } from '../common/util/routing';
 
 const useStyles = makeStyles()((theme) => ({
   root: {
@@ -70,6 +74,7 @@ const MainPage = () => {
   const { classes } = useStyles();
   const dispatch = useDispatch();
   const theme = useTheme();
+  const t = useTranslation();
 
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
 
@@ -78,6 +83,8 @@ const MainPage = () => {
   const selectedDeviceId = useSelector((state) => state.devices.selectedId);
   const positions = useSelector((state) => state.session.positions);
   const [mapFilterIds, setMapFilterIds] = useState(null);
+  const [goToRoute, setGoToRoute] = useState(null);
+  const [goToLoading, setGoToLoading] = useState(false);
 
   const allPositions = Object.values(positions);
   const filteredPositions = selectedDeviceId
@@ -94,6 +101,32 @@ const MainPage = () => {
 
   const onEventsClick = useCallback(() => setEventsOpen(true), [setEventsOpen]);
 
+  const handleGoTo = useCatchCallback(
+    async (position) => {
+      setGoToLoading(true);
+      try {
+        const route = await fetchGoToRoute({
+          latitude: position.latitude,
+          longitude: position.longitude,
+        });
+        setGoToRoute(route);
+      } catch (error) {
+        if (error.code === 'LOCATION_DENIED') {
+          throw new Error(t('sharedLocationDenied'));
+        }
+        throw error;
+      } finally {
+        setGoToLoading(false);
+      }
+    },
+    [t],
+  );
+
+  const handleCloseSelected = useCallback(() => {
+    dispatch(devicesActions.selectId(null));
+    setGoToRoute(null);
+  }, [dispatch]);
+
   useEffect(() => {
     if (!desktop && mapOnSelect && selectedDeviceId) {
       setDevicesOpen(false);
@@ -107,14 +140,12 @@ const MainPage = () => {
           filteredPositions={filteredPositions}
           selectedPosition={selectedPosition}
           onEventsClick={onEventsClick}
+          goToRoute={goToRoute}
         />
       )}
       <div className={classes.sidebar}>
         <Paper square elevation={3} className={classes.header}>
-          <MainToolbar
-            devicesOpen={devicesOpen}
-            setDevicesOpen={setDevicesOpen}
-          />
+          <MainToolbar devicesOpen={devicesOpen} setDevicesOpen={setDevicesOpen} />
         </Paper>
         <div className={classes.middle}>
           {!desktop && (
@@ -123,6 +154,7 @@ const MainPage = () => {
                 filteredPositions={filteredPositions}
                 selectedPosition={selectedPosition}
                 onEventsClick={onEventsClick}
+                goToRoute={goToRoute}
               />
             </div>
           )}
@@ -141,12 +173,22 @@ const MainPage = () => {
         )}
       </div>
       <EventsDrawer open={eventsOpen} onClose={() => setEventsOpen(false)} />
+      {goToRoute && (
+        <GoToRouteBar
+          distanceMeters={goToRoute.distanceMeters}
+          durationSeconds={goToRoute.durationSeconds}
+          onClose={() => setGoToRoute(null)}
+          desktopPadding={theme.dimensions.drawerWidthDesktop}
+        />
+      )}
       {selectedDeviceId && (
         <StatusCard
           deviceId={selectedDeviceId}
           position={selectedPosition}
-          onClose={() => dispatch(devicesActions.selectId(null))}
+          onClose={handleCloseSelected}
           desktopPadding={theme.dimensions.drawerWidthDesktop}
+          onGoTo={handleGoTo}
+          goToLoading={goToLoading}
         />
       )}
     </div>

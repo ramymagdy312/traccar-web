@@ -5,7 +5,7 @@ import { map } from '../core/MapView';
 import { usePrevious } from '../../reactHelper';
 import { useAttributePreference } from '../../common/util/preferences';
 
-const MapSelectedDevice = ({ mapReady }) => {
+const MapSelectedDevice = ({ mapReady, skipFollow }) => {
   const currentTime = useSelector((state) => state.devices.selectTime);
   const currentId = useSelector((state) => state.devices.selectedId);
   const previousTime = usePrevious(currentTime);
@@ -30,7 +30,7 @@ const MapSelectedDevice = ({ mapReady }) => {
     if (
       (currentId !== previousId ||
         currentTime !== previousTime ||
-        (mapFollow && positionChanged)) &&
+        (mapFollow && !skipFollow && positionChanged)) &&
       position
     ) {
       map.easeTo({
@@ -39,7 +39,17 @@ const MapSelectedDevice = ({ mapReady }) => {
         offset: [0, -dimensions.popupMapOffset / 2],
       });
     }
-  }, [currentId, previousId, currentTime, previousTime, mapFollow, position, selectZoom, mapReady]);
+  }, [
+    currentId,
+    previousId,
+    currentTime,
+    previousTime,
+    mapFollow,
+    skipFollow,
+    position,
+    selectZoom,
+    mapReady,
+  ]);
 
   return null;
 };

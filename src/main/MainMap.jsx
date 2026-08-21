@@ -17,9 +17,10 @@ import MapOverlay from '../map/overlay/MapOverlay';
 import MapGeocoder from '../map/geocoder/MapGeocoder';
 import MapScale from '../map/MapScale';
 import MapNotification from '../map/notification/MapNotification';
+import MapGoToRoute from '../map/MapGoToRoute';
 import useFeatures from '../common/util/useFeatures';
 
-const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
+const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, goToRoute }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
 
@@ -49,8 +50,11 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick }) => {
           selectedPosition={selectedPosition}
           showStatus
         />
+        {goToRoute && (
+          <MapGoToRoute coordinates={goToRoute.coordinates} origin={goToRoute.origin} />
+        )}
         <MapDefaultCamera />
-        <MapSelectedDevice />
+        <MapSelectedDevice skipFollow={Boolean(goToRoute)} />
         <PoiMap />
       </MapView>
       <MapScale />

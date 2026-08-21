@@ -19,6 +19,7 @@ import {
   TableFooter,
   Link,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import CloseIcon from '@mui/icons-material/Close';
@@ -36,6 +37,7 @@ import BatteryFullIcon from '@mui/icons-material/BatteryFull';
 import PlaceIcon from '@mui/icons-material/Place';
 import AppsIcon from '@mui/icons-material/Apps';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
+import DirectionsIcon from '@mui/icons-material/Directions';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -550,7 +552,15 @@ const StatusRow = ({ name, content, neon }) => {
   );
 };
 
-const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPadding = 0 }) => {
+const StatusCard = ({
+  deviceId,
+  position,
+  onClose,
+  disableActions,
+  desktopPadding = 0,
+  onGoTo,
+  goToLoading,
+}) => {
   const { classes } = useStyles({ desktopPadding });
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -724,6 +734,22 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
                     <PendingIcon />
                   </IconButton>
                 </Tooltip>
+                {onGoTo && (
+                  <Tooltip title={t('sharedGoTo')}>
+                    <span>
+                      <IconButton
+                        onClick={() => onGoTo(position)}
+                        disabled={disableActions || !position || goToLoading}
+                      >
+                        {goToLoading ? (
+                          <CircularProgress size={20} color="inherit" />
+                        ) : (
+                          <DirectionsIcon />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
                 <Tooltip title={t('reportReplay')}>
                   <IconButton
                     onClick={() => navigate(`/replay?deviceId=${deviceId}`)}
@@ -765,6 +791,17 @@ const StatusCard = ({ deviceId, position, onClose, disableActions, desktopPaddin
       {position && (
         <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
           {!readonly && <MenuItem onClick={handleGeofence}>{t('sharedCreateGeofence')}</MenuItem>}
+          {onGoTo && (
+            <MenuItem
+              disabled={goToLoading}
+              onClick={() => {
+                setAnchorEl(null);
+                onGoTo(position);
+              }}
+            >
+              {t('sharedGoTo')}
+            </MenuItem>
+          )}
           <MenuItem
             component="a"
             target="_blank"

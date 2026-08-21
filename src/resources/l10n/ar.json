@@ -51,6 +51,8 @@
     "sharedSound": "صوت التنبيهات",
     "sharedType": "النوع",
     "sharedDistance": "المسافة",
+    "sharedGoTo": "الذهاب إلى",
+    "sharedLocationDenied": "تم رفض الوصول إلى الموقع. فعّل إذن الموقع لاستخدام الذهاب إلى.",
     "sharedHourAbbreviation": "س",
     "sharedMinuteAbbreviation": "د",
     "sharedSecondAbbreviation": "ث",
