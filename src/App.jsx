@@ -13,13 +13,21 @@ import TermsDialog from './common/components/TermsDialog';
 import Loader from './common/components/Loader';
 import fetchOrThrow from './common/util/fetchOrThrow';
 
-const useStyles = makeStyles()(() => ({
+const useStyles = makeStyles()((theme) => ({
+  app: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+  },
   page: {
-    flexGrow: 1,
+    flex: 1,
+    minHeight: 0,
     overflow: 'auto',
   },
   menu: {
-    zIndex: 4,
+    flexShrink: 0,
+    zIndex: 6,
+    backgroundColor: theme.palette.background.paper,
     '@media print': {
       display: 'none',
     },
@@ -68,7 +76,7 @@ const App = () => {
     return <TermsDialog open onCancel={() => navigate('/login')} onAccept={() => acceptTerms()} />;
   }
   return (
-    <>
+    <div className={classes.app}>
       <SocketController />
       <CachingController />
       <UpdateController />
@@ -81,7 +89,7 @@ const App = () => {
           <BottomMenu />
         </div>
       )}
-    </>
+    </div>
   );
 };
 

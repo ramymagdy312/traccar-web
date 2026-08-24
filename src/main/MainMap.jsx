@@ -20,7 +20,7 @@ import MapNotification from '../map/notification/MapNotification';
 import MapGoToRoute from '../map/MapGoToRoute';
 import useFeatures from '../common/util/useFeatures';
 
-const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, goToRoute }) => {
+const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, goToRoute, statusCardMinimized }) => {
   const theme = useTheme();
   const dispatch = useDispatch();
 
@@ -69,6 +69,9 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, goToRoute
             parseInt(theme.dimensions.drawerWidthDesktop, 10) + parseInt(theme.spacing(1.5), 10)
           }
         />
+      )}
+      {!desktop && selectedPosition && (
+        <MapPadding bottom={statusCardMinimized ? 96 : 280} />
       )}
     </>
   );

@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState, useId, useRef, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Rnd } from 'react-rnd';
@@ -20,9 +20,13 @@ import {
   Link,
   Tooltip,
   CircularProgress,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import { makeStyles } from 'tss-react/mui';
 import CloseIcon from '@mui/icons-material/Close';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RouteIcon from '@mui/icons-material/Route';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
@@ -65,6 +69,21 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
     color: '#e3f2fd',
     border: '1px solid rgba(64, 196, 255, 0.22)',
     boxShadow: '0 12px 48px rgba(25, 118, 210, 0.38), 0 0 0 1px rgba(0, 229, 255, 0.08), inset 0 1px 0 rgba(255,255,255,0.06)',
+    [theme.breakpoints.down('md')]: {
+      width: '100%',
+      maxWidth: '100%',
+      maxHeight: 'min(52vh, 440px)',
+      borderRadius: '20px 20px 0 0',
+      display: 'flex',
+      flexDirection: 'column',
+      boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.28)',
+      transition: 'max-height 0.22s ease',
+    },
+  },
+  cardMinimized: {
+    [theme.breakpoints.down('md')]: {
+      maxHeight: 'none',
+    },
   },
   media: {
     height: theme.dimensions.popupImageHeight,
@@ -87,6 +106,38 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
       color: '#e3f2fd',
       fontWeight: 700,
     },
+    [theme.breakpoints.down('md')]: {
+      padding: theme.spacing(0.5, 1.25, 1, 1.75),
+      flexDirection: 'column',
+      alignItems: 'stretch',
+      gap: theme.spacing(0.25),
+    },
+  },
+  handle: {
+    display: 'none',
+    [theme.breakpoints.down('md')]: {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      flexDirection: 'column',
+      gap: 2,
+      paddingTop: theme.spacing(0.75),
+      paddingBottom: theme.spacing(0.25),
+      cursor: 'pointer',
+      touchAction: 'none',
+    },
+  },
+  handleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(227, 242, 253, 0.28)',
+  },
+  headerRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minWidth: 0,
   },
   content: {
     paddingTop: theme.spacing(0.5),
@@ -96,6 +147,12 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
     maxHeight: theme.dimensions.cardContentMaxHeight,
     overflow: 'auto',
     background: 'transparent',
+    [theme.breakpoints.down('md')]: {
+      flex: 1,
+      minHeight: 0,
+      maxHeight: 'none',
+      padding: theme.spacing(1, 1.5, 0.5),
+    },
   },
   icon: {
     width: '25px',
@@ -126,6 +183,14 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
     '& .MuiIconButton-colorError': {
       color: '#ef5350',
       '&:hover': { color: '#ff7961', backgroundColor: 'rgba(239,83,80,0.08)' },
+    },
+    [theme.breakpoints.down('md')]: {
+      flexShrink: 0,
+      padding: theme.spacing(0.5, 0.75, 1),
+      '& .MuiIconButton-root': {
+        width: 44,
+        height: 44,
+      },
     },
   },
   neonTable: {
@@ -163,12 +228,15 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
     [theme.breakpoints.up('md')]: {
       left: `calc(50% + ${desktopPadding} / 2)`,
       bottom: theme.spacing(3),
+      transform: 'translateX(-50%)',
     },
     [theme.breakpoints.down('md')]: {
-      left: '50%',
-      bottom: `calc(${theme.spacing(3)} + ${theme.dimensions.bottomBarHeight}px)`,
+      left: 0,
+      right: 0,
+      width: '100%',
+      transform: 'none',
+      bottom: `calc(${theme.dimensions.bottomBarHeight}px + env(safe-area-inset-bottom, 0px))`,
     },
-    transform: 'translateX(-50%)',
   },
 }));
 
@@ -393,7 +461,57 @@ const NeonOdometer = ({ meters, distanceUnit, t, classes }) => {
   );
 };
 
-const NeonDashboard = ({ position, device, speedUnit, distanceUnit, t, classes, onMenuClick }) => {
+const CompactSpeed = ({ speedKnots, speedUnit, t, meters, distanceUnit }) => {
+  const hasOdo = typeof meters === 'number';
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'stretch', gap: 1, mb: 1 }}>
+      <Box
+        sx={{
+          flex: '0 0 auto',
+          px: 1.5,
+          py: 0.85,
+          borderRadius: 2,
+          border: '1px solid rgba(0, 229, 255, 0.4)',
+          background: 'linear-gradient(180deg, rgba(0,60,90,0.5) 0%, rgba(0,30,50,0.85) 100%)',
+          minWidth: 92,
+          textAlign: 'center',
+        }}
+      >
+        <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', fontFamily: 'ui-monospace, monospace', color: '#80deea', lineHeight: 1.2 }}>
+          {formatSpeed(speedKnots || 0, speedUnit, t)}
+        </Typography>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'rgba(180,220,255,0.6)', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+          {speedUnitString(speedUnit, t)}
+        </Typography>
+      </Box>
+      {hasOdo && (
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            px: 1.25,
+            py: 0.85,
+            borderRadius: 2,
+            bgcolor: 'rgba(0,0,0,0.45)',
+            border: '1px solid rgba(57, 255, 100, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+        >
+          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'rgba(180,220,255,0.55)', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+            {t('deviceTotalDistance')}
+          </Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', color: '#5cff8a', fontFamily: 'ui-monospace, monospace' }}>
+            {formatDistance(meters, distanceUnit, t)}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+const NeonDashboard = ({ position, device, speedUnit, distanceUnit, t, classes, onMenuClick, compact }) => {
   const connectionStatus = device?.status || 'unknown';
   const hasOdo = typeof position.attributes?.totalDistance === 'number';
   const course = position.course;
@@ -413,80 +531,144 @@ const NeonDashboard = ({ position, device, speedUnit, distanceUnit, t, classes, 
   const statusDot =
     connectionStatus === 'online' ? '#4caf50' : connectionStatus === 'offline' ? '#ef5350' : '#ffa726';
 
+  const pills = (
+    <>
+      {typeof course === 'number' && (
+        <Box sx={{ ...pillBaseSx, ...(compact ? { fontSize: '0.72rem', py: 0.7 } : {}), borderColor: 'rgba(66, 165, 245, 0.65)', color: '#90caf9', bgcolor: 'rgba(13,40,70,0.55)' }}>
+          <NavigationIcon sx={{ fontSize: 14, transform: `rotate(${course}deg)` }} />
+          {courseToCompass(course)}
+        </Box>
+      )}
+      <Box sx={{ ...pillBaseSx, ...(compact ? { fontSize: '0.72rem', py: 0.7 } : {}), borderColor: statusPillBorder, color: statusPillColor, bgcolor: 'rgba(10,25,40,0.65)' }}>
+        <FiberManualRecordIcon sx={{ fontSize: 12, color: statusDot, filter: `drop-shadow(0 0 6px ${statusDot})` }} />
+        {formatStatus(connectionStatus, t)}
+      </Box>
+      {typeof accuracyM === 'number' && (
+        <Box sx={{ ...pillBaseSx, ...(compact ? { fontSize: '0.72rem', py: 0.7 } : {}), borderColor: 'rgba(66, 165, 245, 0.5)', color: '#81d4fa', bgcolor: 'rgba(13,40,70,0.45)' }}>
+          <MyLocationIcon sx={{ fontSize: 14 }} />
+          {formatDistance(accuracyM, distanceUnit, t)}
+        </Box>
+      )}
+      {ign != null && (
+        <Box
+          sx={{
+            ...pillBaseSx,
+            ...(compact ? { fontSize: '0.72rem', py: 0.7 } : {}),
+            borderColor: ign ? 'rgba(76, 175, 80, 0.5)' : 'rgba(158, 158, 158, 0.45)',
+            color: ign ? '#c8e6c9' : 'rgba(180,190,200,0.85)',
+            bgcolor: 'rgba(15,28,42,0.55)',
+          }}
+        >
+          <PowerSettingsNewIcon sx={{ fontSize: 14 }} />
+          {formatBoolean(ign, t)}
+        </Box>
+      )}
+      {batt != null && (
+        <Box sx={{ ...pillBaseSx, ...(compact ? { fontSize: '0.72rem', py: 0.7 } : {}), borderColor: 'rgba(76, 175, 80, 0.55)', color: '#a5d6a7', bgcolor: 'rgba(13,40,30,0.5)' }}>
+          <BatteryFullIcon sx={{ fontSize: 14 }} />
+          {formatPercentage(batt)}
+        </Box>
+      )}
+      {fixTime && (
+        <Box sx={{ ...pillBaseSx, ...(compact ? { fontSize: '0.72rem', py: 0.7 } : {}), borderColor: 'rgba(158, 158, 158, 0.45)', color: 'rgba(200,210,220,0.85)', bgcolor: 'rgba(20,30,45,0.5)' }}>
+          <ScheduleIcon sx={{ fontSize: 14 }} />
+          {dayjs(fixTime).fromNow()}
+        </Box>
+      )}
+    </>
+  );
+
   return (
     <Box sx={{ position: 'relative' }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <NeonSpeedometer speedKnots={position.speed} speedUnit={speedUnit} t={t} />
-        {hasOdo && (
-          <Box sx={{ width: '100%', maxWidth: 320, mt: 1.5 }}>
-            <NeonOdometer meters={position.attributes.totalDistance} distanceUnit={distanceUnit} t={t} classes={classes} />
-          </Box>
-        )}
-      </Box>
-
-      <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mt: 2, px: 0.5 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
-          {typeof course === 'number' && (
-            <Box sx={{ ...pillBaseSx, borderColor: 'rgba(66, 165, 245, 0.65)', color: '#90caf9', bgcolor: 'rgba(13,40,70,0.55)' }}>
-              <NavigationIcon sx={{ fontSize: 14, transform: `rotate(${course}deg)` }} />
-              {courseToCompass(course)}
-            </Box>
-          )}
-          {typeof accuracyM === 'number' && (
-            <Box sx={{ ...pillBaseSx, borderColor: 'rgba(66, 165, 245, 0.5)', color: '#81d4fa', bgcolor: 'rgba(13,40,70,0.45)' }}>
-              <MyLocationIcon sx={{ fontSize: 14 }} />
-              {formatDistance(accuracyM, distanceUnit, t)}
-            </Box>
-          )}
-          {fixTime && (
-            <Box sx={{ ...pillBaseSx, borderColor: 'rgba(158, 158, 158, 0.45)', color: 'rgba(200,210,220,0.85)', bgcolor: 'rgba(20,30,45,0.5)' }}>
-              <ScheduleIcon sx={{ fontSize: 14 }} />
-              {dayjs(fixTime).fromNow()}
-            </Box>
-          )}
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85, alignItems: 'flex-end', flex: 1, minWidth: 0 }}>
-          <Box sx={{ ...pillBaseSx, borderColor: statusPillBorder, color: statusPillColor, bgcolor: 'rgba(10,25,40,0.65)' }}>
-            <FiberManualRecordIcon sx={{ fontSize: 12, color: statusDot, filter: `drop-shadow(0 0 6px ${statusDot})` }} />
-            {formatStatus(connectionStatus, t)}
-          </Box>
-          {ign != null && (
-            <Box
-              sx={{
-                ...pillBaseSx,
-                borderColor: ign ? 'rgba(76, 175, 80, 0.5)' : 'rgba(158, 158, 158, 0.45)',
-                color: ign ? '#c8e6c9' : 'rgba(180,190,200,0.85)',
-                bgcolor: 'rgba(15,28,42,0.55)',
-              }}
-            >
-              <PowerSettingsNewIcon sx={{ fontSize: 14 }} />
-              {formatBoolean(ign, t)}
-            </Box>
-          )}
-          {batt != null && (
-            <Box sx={{ ...pillBaseSx, borderColor: 'rgba(76, 175, 80, 0.55)', color: '#a5d6a7', bgcolor: 'rgba(13,40,30,0.5)' }}>
-              <BatteryFullIcon sx={{ fontSize: 14 }} />
-              {formatPercentage(batt)}
-            </Box>
-          )}
-        </Box>
-      </Box>
-
-      <Box sx={{ textAlign: 'center', py: 1.5, mt: 0.5 }}>
-        <GpsFixedIcon
-          sx={{
-            fontSize: 36,
-            color: '#29b6f6',
-            filter: 'drop-shadow(0 0 14px rgba(41, 182, 246, 0.85))',
-          }}
+      {compact ? (
+        <CompactSpeed
+          speedKnots={position.speed}
+          speedUnit={speedUnit}
+          t={t}
+          meters={hasOdo ? position.attributes.totalDistance : null}
+          distanceUnit={distanceUnit}
         />
-        <Typography sx={{ fontWeight: 900, letterSpacing: 6, fontSize: '0.95rem', color: '#e3f2fd', mt: 0.25, textTransform: 'uppercase' }}>
-          {t('mapTitle')}
-        </Typography>
-      </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <NeonSpeedometer speedKnots={position.speed} speedUnit={speedUnit} t={t} />
+          {hasOdo && (
+            <Box sx={{ width: '100%', maxWidth: 320, mt: 1.5 }}>
+              <NeonOdometer meters={position.attributes.totalDistance} distanceUnit={distanceUnit} t={t} classes={classes} />
+            </Box>
+          )}
+        </Box>
+      )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1, mt: 0.5, mb: 1 }}>
+      {compact ? (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 1 }}>
+          {pills}
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mt: 2, px: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85, alignItems: 'flex-start', flex: 1, minWidth: 0 }}>
+            {typeof course === 'number' && (
+              <Box sx={{ ...pillBaseSx, borderColor: 'rgba(66, 165, 245, 0.65)', color: '#90caf9', bgcolor: 'rgba(13,40,70,0.55)' }}>
+                <NavigationIcon sx={{ fontSize: 14, transform: `rotate(${course}deg)` }} />
+                {courseToCompass(course)}
+              </Box>
+            )}
+            {typeof accuracyM === 'number' && (
+              <Box sx={{ ...pillBaseSx, borderColor: 'rgba(66, 165, 245, 0.5)', color: '#81d4fa', bgcolor: 'rgba(13,40,70,0.45)' }}>
+                <MyLocationIcon sx={{ fontSize: 14 }} />
+                {formatDistance(accuracyM, distanceUnit, t)}
+              </Box>
+            )}
+            {fixTime && (
+              <Box sx={{ ...pillBaseSx, borderColor: 'rgba(158, 158, 158, 0.45)', color: 'rgba(200,210,220,0.85)', bgcolor: 'rgba(20,30,45,0.5)' }}>
+                <ScheduleIcon sx={{ fontSize: 14 }} />
+                {dayjs(fixTime).fromNow()}
+              </Box>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.85, alignItems: 'flex-end', flex: 1, minWidth: 0 }}>
+            <Box sx={{ ...pillBaseSx, borderColor: statusPillBorder, color: statusPillColor, bgcolor: 'rgba(10,25,40,0.65)' }}>
+              <FiberManualRecordIcon sx={{ fontSize: 12, color: statusDot, filter: `drop-shadow(0 0 6px ${statusDot})` }} />
+              {formatStatus(connectionStatus, t)}
+            </Box>
+            {ign != null && (
+              <Box
+                sx={{
+                  ...pillBaseSx,
+                  borderColor: ign ? 'rgba(76, 175, 80, 0.5)' : 'rgba(158, 158, 158, 0.45)',
+                  color: ign ? '#c8e6c9' : 'rgba(180,190,200,0.85)',
+                  bgcolor: 'rgba(15,28,42,0.55)',
+                }}
+              >
+                <PowerSettingsNewIcon sx={{ fontSize: 14 }} />
+                {formatBoolean(ign, t)}
+              </Box>
+            )}
+            {batt != null && (
+              <Box sx={{ ...pillBaseSx, borderColor: 'rgba(76, 175, 80, 0.55)', color: '#a5d6a7', bgcolor: 'rgba(13,40,30,0.5)' }}>
+                <BatteryFullIcon sx={{ fontSize: 14 }} />
+                {formatPercentage(batt)}
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
+
+      {!compact && (
+        <Box sx={{ textAlign: 'center', py: 1.5, mt: 0.5 }}>
+          <GpsFixedIcon
+            sx={{
+              fontSize: 36,
+              color: '#29b6f6',
+              filter: 'drop-shadow(0 0 14px rgba(41, 182, 246, 0.85))',
+            }}
+          />
+          <Typography sx={{ fontWeight: 900, letterSpacing: 6, fontSize: '0.95rem', color: '#e3f2fd', mt: 0.25, textTransform: 'uppercase' }}>
+            {t('mapTitle')}
+          </Typography>
+        </Box>
+      )}
+
+      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 1, mt: compact ? 0 : 0.5, mb: 1 }}>
         <Box
           sx={{
             flex: 1,
@@ -560,8 +742,11 @@ const StatusCard = ({
   desktopPadding = 0,
   onGoTo,
   goToLoading,
+  onMinimizedChange,
 }) => {
-  const { classes } = useStyles({ desktopPadding });
+  const { classes, cx } = useStyles({ desktopPadding });
+  const theme = useTheme();
+  const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const t = useTranslation();
@@ -587,8 +772,43 @@ const StatusCard = ({
   const distanceUnit = useAttributePreference('distanceUnit');
 
   const [anchorEl, setAnchorEl] = useState(null);
-
   const [removing, setRemoving] = useState(false);
+  const [minimized, setMinimized] = useState(false);
+  const touchStartY = useRef(null);
+  const didSwipe = useRef(false);
+
+  useEffect(() => {
+    onMinimizedChange?.(minimized);
+    return () => onMinimizedChange?.(false);
+  }, [minimized, onMinimizedChange]);
+
+  const toggleMinimized = (event) => {
+    event?.stopPropagation?.();
+    if (didSwipe.current) {
+      didSwipe.current = false;
+      return;
+    }
+    setMinimized((value) => !value);
+  };
+
+  const handleTouchStart = (event) => {
+    touchStartY.current = event.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (event) => {
+    if (touchStartY.current == null) {
+      return;
+    }
+    const deltaY = event.changedTouches[0].clientY - touchStartY.current;
+    touchStartY.current = null;
+    if (deltaY > 28) {
+      didSwipe.current = true;
+      setMinimized(true);
+    } else if (deltaY < -28) {
+      didSwipe.current = true;
+      setMinimized(false);
+    }
+  };
 
   const handleRemove = useCatch(async (removed) => {
     if (removed) {
@@ -617,175 +837,226 @@ const StatusCard = ({
     navigate(`/settings/geofence/${item.id}`);
   }, [navigate, position]);
 
+  const connectionStatus = device?.status || 'unknown';
+  const statusDot =
+    connectionStatus === 'online' ? '#4caf50' : connectionStatus === 'offline' ? '#ef5350' : '#ffa726';
+
+  const cardInner = device && (
+    <Card elevation={3} className={cx(classes.card, minimized && classes.cardMinimized)}>
+      {deviceImage && desktop && !minimized ? (
+        <CardMedia
+          className={`${classes.media} draggable-header`}
+          image={`/api/media/${device.uniqueId}/${deviceImage}`}
+        >
+          <IconButton size="small" onClick={toggleMinimized} sx={{ color: '#b3e5fc' }}>
+            <ExpandMoreIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" onClick={onClose} onTouchStart={onClose}>
+            <CloseIcon fontSize="small" className={classes.mediaButton} />
+          </IconButton>
+        </CardMedia>
+      ) : (
+        <div className={`${classes.header} draggable-header`}>
+          {!desktop && (
+            <div
+              className={classes.handle}
+              onClick={toggleMinimized}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              role="button"
+              tabIndex={0}
+              aria-label={minimized ? t('reportShow') : t('sharedHide')}
+            >
+              <div className={classes.handleBar} />
+            </div>
+          )}
+          <div className={classes.headerRow}>
+            <Box sx={{ minWidth: 0, flex: 1, pr: 1 }}>
+              <Typography variant="body2" color="textSecondary" noWrap>
+                {device.name}
+              </Typography>
+              {minimized && position && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25, minWidth: 0 }}>
+                  <Typography sx={{ color: '#80deea', fontWeight: 800, fontSize: '0.85rem', fontFamily: 'ui-monospace, monospace', flexShrink: 0 }}>
+                    {formatSpeed(position.speed || 0, speedUnit, t)}
+                  </Typography>
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.4, minWidth: 0 }}>
+                    <FiberManualRecordIcon sx={{ fontSize: 10, color: statusDot }} />
+                    <Typography noWrap sx={{ fontSize: '0.72rem', color: 'rgba(200,210,220,0.9)' }}>
+                      {formatStatus(connectionStatus, t)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+            <Tooltip title={minimized ? t('reportShow') : t('sharedHide')}>
+              <IconButton size="small" onClick={toggleMinimized} sx={{ color: '#b3e5fc' }}>
+                {minimized ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <IconButton size="small" onClick={onClose} onTouchStart={onClose} sx={{ color: '#b3e5fc' }}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </div>
+        </div>
+      )}
+      {position && !minimized && (
+        <CardContent className={classes.content}>
+          <NeonDashboard
+            position={position}
+            device={device}
+            speedUnit={speedUnit}
+            distanceUnit={distanceUnit}
+            t={t}
+            classes={classes}
+            compact={!desktop}
+            onMenuClick={(e) => {
+              e.stopPropagation();
+              setAnchorEl(e.currentTarget);
+            }}
+          />
+          <Table
+            size="small"
+            classes={{ root: [classes.table, classes.neonTable].filter(Boolean).join(' ') }}
+          >
+            <TableBody>
+              {positionItems
+                .split(',')
+                .filter((key) => {
+                  if (!(position.hasOwnProperty(key) || position.attributes.hasOwnProperty(key))) {
+                    return false;
+                  }
+                  if (key === 'speed') {
+                    return false;
+                  }
+                  if (key === 'totalDistance' && typeof position.attributes?.totalDistance === 'number') {
+                    return false;
+                  }
+                  if (key === 'course' && typeof position.course === 'number') {
+                    return false;
+                  }
+                  if (key === 'accuracy' && typeof position.accuracy === 'number') {
+                    return false;
+                  }
+                  if (key === 'fixTime' && position.fixTime) {
+                    return false;
+                  }
+                  if (key === 'ignition' && Object.prototype.hasOwnProperty.call(position.attributes, 'ignition')) {
+                    return false;
+                  }
+                  if (key === 'batteryLevel' && position.attributes?.batteryLevel != null) {
+                    return false;
+                  }
+                  return true;
+                })
+                .map((key) => (
+                  <StatusRow
+                    key={key}
+                    neon
+                    name={positionAttributes[key]?.name || key}
+                    content={
+                      <PositionValue
+                        position={position}
+                        property={position.hasOwnProperty(key) ? key : null}
+                        attribute={position.hasOwnProperty(key) ? null : key}
+                      />
+                    }
+                  />
+                ))}
+            </TableBody>
+            <TableFooter>
+              <TableRow>
+                <TableCell colSpan={2} className={classes.cell}>
+                  <Typography variant="body2">
+                    <Link component={RouterLink} to={`/position/${position.id}`}>
+                      {t('sharedShowDetails')}
+                    </Link>
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
+        </CardContent>
+      )}
+      {!minimized && (
+      <CardActions classes={{ root: classes.actions }} disableSpacing>
+        <Tooltip title={t('sharedExtra')}>
+          <IconButton
+            color="secondary"
+            onClick={(e) => setAnchorEl(e.currentTarget)}
+            disabled={!position}
+          >
+            <PendingIcon />
+          </IconButton>
+        </Tooltip>
+        {onGoTo && (
+          <Tooltip title={t('sharedGoTo')}>
+            <span>
+              <IconButton
+                onClick={() => onGoTo(position)}
+                disabled={disableActions || !position || goToLoading}
+              >
+                {goToLoading ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <DirectionsIcon />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        <Tooltip title={t('reportReplay')}>
+          <IconButton
+            onClick={() => navigate(`/replay?deviceId=${deviceId}`)}
+            disabled={disableActions || !position}
+          >
+            <RouteIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('commandTitle')}>
+          <IconButton
+            onClick={() => navigate(`/settings/device/${deviceId}/command`)}
+            disabled={disableActions}
+          >
+            <SendIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('sharedEdit')}>
+          <IconButton
+            onClick={() => navigate(`/settings/device/${deviceId}`)}
+            disabled={disableActions || deviceReadonly}
+          >
+            <EditIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title={t('sharedRemove')}>
+          <IconButton
+            color="error"
+            onClick={() => setRemoving(true)}
+            disabled={disableActions || deviceReadonly}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Tooltip>
+      </CardActions>
+      )}
+    </Card>
+  );
+
   return (
     <>
       <div className={classes.root}>
         {device && (
-          <Rnd
-            default={{ x: 0, y: 0, width: 'auto', height: 'auto' }}
-            enableResizing={false}
-            dragHandleClassName="draggable-header"
-            style={{ position: 'relative' }}
-          >
-            <Card elevation={3} className={classes.card}>
-              {deviceImage ? (
-                <CardMedia
-                  className={`${classes.media} draggable-header`}
-                  image={`/api/media/${device.uniqueId}/${deviceImage}`}
-                >
-                  <IconButton size="small" onClick={onClose} onTouchStart={onClose}>
-                    <CloseIcon fontSize="small" className={classes.mediaButton} />
-                  </IconButton>
-                </CardMedia>
-              ) : (
-                <div className={`${classes.header} draggable-header`}>
-                  <Typography variant="body2" color="textSecondary">
-                    {device.name}
-                  </Typography>
-                  <IconButton size="small" onClick={onClose} onTouchStart={onClose} sx={{ color: '#b3e5fc' }}>
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                </div>
-              )}
-              {position && (
-                <CardContent className={classes.content}>
-                  <NeonDashboard
-                    position={position}
-                    device={device}
-                    speedUnit={speedUnit}
-                    distanceUnit={distanceUnit}
-                    t={t}
-                    classes={classes}
-                    onMenuClick={(e) => {
-                      e.stopPropagation();
-                      setAnchorEl(e.currentTarget);
-                    }}
-                  />
-                  <Table
-                    size="small"
-                    classes={{ root: [classes.table, classes.neonTable].filter(Boolean).join(' ') }}
-                  >
-                    <TableBody>
-                      {positionItems
-                        .split(',')
-                        .filter((key) => {
-                          if (!(position.hasOwnProperty(key) || position.attributes.hasOwnProperty(key))) {
-                            return false;
-                          }
-                          if (key === 'speed') {
-                            return false;
-                          }
-                          if (key === 'totalDistance' && typeof position.attributes?.totalDistance === 'number') {
-                            return false;
-                          }
-                          if (key === 'course' && typeof position.course === 'number') {
-                            return false;
-                          }
-                          if (key === 'accuracy' && typeof position.accuracy === 'number') {
-                            return false;
-                          }
-                          if (key === 'fixTime' && position.fixTime) {
-                            return false;
-                          }
-                          if (key === 'ignition' && Object.prototype.hasOwnProperty.call(position.attributes, 'ignition')) {
-                            return false;
-                          }
-                          if (key === 'batteryLevel' && position.attributes?.batteryLevel != null) {
-                            return false;
-                          }
-                          return true;
-                        })
-                        .map((key) => (
-                          <StatusRow
-                            key={key}
-                            neon
-                            name={positionAttributes[key]?.name || key}
-                            content={
-                              <PositionValue
-                                position={position}
-                                property={position.hasOwnProperty(key) ? key : null}
-                                attribute={position.hasOwnProperty(key) ? null : key}
-                              />
-                            }
-                          />
-                        ))}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell colSpan={2} className={classes.cell}>
-                          <Typography variant="body2">
-                            <Link component={RouterLink} to={`/position/${position.id}`}>
-                              {t('sharedShowDetails')}
-                            </Link>
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
-                </CardContent>
-              )}
-              <CardActions classes={{ root: classes.actions }} disableSpacing>
-                <Tooltip title={t('sharedExtra')}>
-                  <IconButton
-                    color="secondary"
-                    onClick={(e) => setAnchorEl(e.currentTarget)}
-                    disabled={!position}
-                  >
-                    <PendingIcon />
-                  </IconButton>
-                </Tooltip>
-                {onGoTo && (
-                  <Tooltip title={t('sharedGoTo')}>
-                    <span>
-                      <IconButton
-                        onClick={() => onGoTo(position)}
-                        disabled={disableActions || !position || goToLoading}
-                      >
-                        {goToLoading ? (
-                          <CircularProgress size={20} color="inherit" />
-                        ) : (
-                          <DirectionsIcon />
-                        )}
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                )}
-                <Tooltip title={t('reportReplay')}>
-                  <IconButton
-                    onClick={() => navigate(`/replay?deviceId=${deviceId}`)}
-                    disabled={disableActions || !position}
-                  >
-                    <RouteIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={t('commandTitle')}>
-                  <IconButton
-                    onClick={() => navigate(`/settings/device/${deviceId}/command`)}
-                    disabled={disableActions}
-                  >
-                    <SendIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={t('sharedEdit')}>
-                  <IconButton
-                    onClick={() => navigate(`/settings/device/${deviceId}`)}
-                    disabled={disableActions || deviceReadonly}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </Tooltip>
-                <Tooltip title={t('sharedRemove')}>
-                  <IconButton
-                    color="error"
-                    onClick={() => setRemoving(true)}
-                    disabled={disableActions || deviceReadonly}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Tooltip>
-              </CardActions>
-            </Card>
-          </Rnd>
+          desktop ? (
+            <Rnd
+              default={{ x: 0, y: 0, width: 'auto', height: 'auto' }}
+              enableResizing={false}
+              dragHandleClassName="draggable-header"
+              style={{ position: 'relative' }}
+            >
+              {cardInner}
+            </Rnd>
+          ) : cardInner
         )}
       </div>
       {position && (

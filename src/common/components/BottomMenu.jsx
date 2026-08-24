@@ -126,8 +126,27 @@ const BottomMenu = () => {
   };
 
   return (
-    <Paper square elevation={3} sx={{ borderTop: 1, borderColor: 'divider' }}>
-      <BottomNavigation value={currentSelection()} onChange={handleSelection} showLabels>
+    <Paper
+      square
+      elevation={3}
+      sx={{
+        borderTop: 1,
+        borderColor: 'divider',
+        pb: 'env(safe-area-inset-bottom, 0px)',
+      }}
+    >
+      <BottomNavigation
+        value={currentSelection()}
+        onChange={handleSelection}
+        showLabels
+        sx={{
+          minHeight: 56,
+          '& .MuiBottomNavigationAction-root': {
+            minWidth: 0,
+            paddingTop: 1,
+          },
+        }}
+      >
         <BottomNavigationAction
           label={t('mapTitle')}
           icon={

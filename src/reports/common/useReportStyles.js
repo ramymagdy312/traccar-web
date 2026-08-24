@@ -38,15 +38,25 @@ export default makeStyles()((theme) => ({
     '@media print': {
       display: 'none !important',
     },
+    [theme.breakpoints.down('md')]: {
+      gap: theme.spacing(1.25),
+      padding: theme.spacing(1.5, 1.5, 1),
+    },
   },
   filterItem: {
     minWidth: 0,
     flex: `1 1 ${theme.dimensions.filterFormWidth}`,
+    [theme.breakpoints.down('md')]: {
+      flex: '1 1 100%',
+    },
   },
   filterButtons: {
     display: 'flex',
     gap: theme.spacing(1),
     flex: `1 1 ${theme.dimensions.filterFormWidth}`,
+    [theme.breakpoints.down('md')]: {
+      flex: '1 1 100%',
+    },
   },
   filterButton: {
     flexGrow: 1,

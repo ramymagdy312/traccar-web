@@ -20,6 +20,14 @@ const useStyles = makeStyles()((theme) => ({
     background: theme.palette.mode === 'dark'
       ? 'linear-gradient(135deg, #1a2634 0%, #1e3044 100%)'
       : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+    [theme.breakpoints.down('md')]: {
+      minHeight: 56,
+      padding: theme.spacing(0.5, 1),
+      '& .MuiIconButton-root': {
+        width: 44,
+        height: 44,
+      },
+    },
   },
 }));
 

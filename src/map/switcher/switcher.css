@@ -1,5 +1,9 @@
 .maplibregl-style-list {
   display: none;
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 24px));
+  max-height: min(60vh, 360px);
+  overflow-y: auto;
 }
 
 .maplibregl-ctrl-group .maplibregl-style-list button {
@@ -8,10 +12,15 @@
   cursor: pointer;
   display: block;
   font-size: 14px;
-  padding: 8px 8px 6px;
-  text-align: right;
+  line-height: 1.3;
+  padding: 10px 14px;
+  text-align: start;
   width: 100%;
   height: auto;
+  min-height: 40px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .maplibregl-style-list button.active {

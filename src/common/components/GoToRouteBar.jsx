@@ -20,7 +20,11 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
       top: theme.spacing(2),
     },
     [theme.breakpoints.down('md')]: {
-      top: 72,
+      top: 64,
+      left: 12,
+      right: 12,
+      transform: 'none',
+      width: 'auto',
     },
   },
   paper: {
@@ -36,6 +40,14 @@ const useStyles = makeStyles()((theme, { desktopPadding }) => ({
     color: '#e3f2fd',
     border: '1px solid rgba(0, 229, 255, 0.28)',
     boxShadow: '0 8px 28px rgba(25, 118, 210, 0.35)',
+    [theme.breakpoints.down('md')]: {
+      maxWidth: '100%',
+      gap: theme.spacing(0.75),
+      padding: theme.spacing(0.75, 0.75, 0.75, 1.25),
+      '& .MuiTypography-root': {
+        fontSize: '0.75rem',
+      },
+    },
   },
   icon: {
     color: '#00e5ff',

@@ -66,6 +66,10 @@ const useStyles = makeStyles()((theme) => ({
         : alpha(theme.palette.common.black, 0.12),
       borderRadius: 2,
     },
+    [theme.breakpoints.down('md')]: {
+      padding: theme.spacing(1.25),
+      gap: theme.spacing(1.25),
+    },
   },
   statusRow: {
     display: 'grid',

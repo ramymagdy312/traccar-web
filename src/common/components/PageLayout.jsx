@@ -56,6 +56,9 @@ const useStyles = makeStyles()((theme, { miniVariant }) => ({
     '@media print': {
       display: 'none',
     },
+    [theme.breakpoints.down('sm')]: {
+      width: 'min(100vw - 24px, 360px)',
+    },
   },
   mobileToolbar: {
     zIndex: 1,

@@ -1,5 +1,6 @@
 html, body {
   height: 100%;
+  height: 100dvh;
 }
 
 body {
@@ -17,4 +18,23 @@ body {
   display: flex;
   flex-direction: column;
   height: 100%;
+  height: 100dvh;
+}
+
+@media (max-width: 899.95px) {
+  .maplibregl-ctrl-group > button {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .maplibregl-ctrl-group .maplibregl-style-list button {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 40px !important;
+  }
+
+  .maplibregl-ctrl-bottom-right,
+  .maplibregl-ctrl-bottom-left {
+    margin-bottom: 8px;
+  }
 }

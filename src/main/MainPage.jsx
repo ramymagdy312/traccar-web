@@ -42,8 +42,10 @@ const useStyles = makeStyles()((theme) => ({
   header: {
     pointerEvents: 'auto',
     zIndex: 6,
-    borderRadius: '12px 12px 0 0',
-    overflow: 'hidden',
+    [theme.breakpoints.up('md')]: {
+      borderRadius: '12px 12px 0 0',
+      overflow: 'hidden',
+    },
   },
   footer: {
     pointerEvents: 'auto',
@@ -98,6 +100,7 @@ const MainPage = () => {
 
   const [devicesOpen, setDevicesOpen] = useState(desktop);
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [statusMinimized, setStatusMinimized] = useState(false);
 
   const onEventsClick = useCallback(() => setEventsOpen(true), [setEventsOpen]);
 
@@ -155,6 +158,7 @@ const MainPage = () => {
                 selectedPosition={selectedPosition}
                 onEventsClick={onEventsClick}
                 goToRoute={goToRoute}
+                statusCardMinimized={statusMinimized}
               />
             </div>
           )}
@@ -181,7 +185,7 @@ const MainPage = () => {
           desktopPadding={theme.dimensions.drawerWidthDesktop}
         />
       )}
-      {selectedDeviceId && (
+      {selectedDeviceId && (desktop || !devicesOpen) && (
         <StatusCard
           deviceId={selectedDeviceId}
           position={selectedPosition}
@@ -189,6 +193,7 @@ const MainPage = () => {
           desktopPadding={theme.dimensions.drawerWidthDesktop}
           onGoTo={handleGoTo}
           goToLoading={goToLoading}
+          onMinimizedChange={setStatusMinimized}
         />
       )}
     </div>

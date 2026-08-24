@@ -18,6 +18,14 @@ import { eventsActions } from '../store';
 const useStyles = makeStyles()((theme) => ({
   drawer: {
     width: theme.dimensions.eventsDrawerWidth,
+    [theme.breakpoints.down('md')]: {
+      width: '100%',
+    },
+  },
+  paper: {
+    [theme.breakpoints.down('md')]: {
+      width: '100%',
+    },
   },
   toolbar: {
     paddingLeft: theme.spacing(2),
@@ -47,7 +55,7 @@ const EventsDrawer = ({ open, onClose }) => {
     });
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose}>
+    <Drawer anchor="right" open={open} onClose={onClose} classes={{ paper: classes.paper }}>
       <Toolbar className={classes.toolbar} disableGutters>
         <Typography variant="h6" className={classes.title}>
           {t('reportEvents')}
