@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, useId, startTransition } from 'react';
 import {
   Box,
   IconButton,
@@ -8,7 +8,10 @@ import {
   Tooltip,
   Typography,
   LinearProgress,
+  Button,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import { makeStyles } from 'tss-react/mui';
 import TuneIcon from '@mui/icons-material/Tune';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -28,10 +31,11 @@ import SkipPreviousIcon from '@mui/icons-material/SkipPrevious';
 import SkipNextIcon from '@mui/icons-material/SkipNext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import MapView from '../map/core/MapView';
+import MapView, { map } from '../map/core/MapView';
 import MapRoutePath from '../map/MapRoutePath';
 import MapRoutePoints from '../map/MapRoutePoints';
-import MapPositions from '../map/MapPositions';
+import { mapIconKey } from '../map/core/preloadImages';
+import { findFonts } from '../map/core/mapUtil';
 import { formatTime, formatSpeed, formatDistance, formatAddress } from '../common/util/formatter';
 import ReportFilter, { updateReportParams } from '../reports/components/ReportFilter';
 import { useTranslation } from '../common/components/LocalizationProvider';
@@ -167,6 +171,41 @@ const useStyles = makeStyles()((theme) => ({
     textAlign: 'center',
     fontWeight: 600,
   },
+  speedRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    marginTop: theme.spacing(1),
+    flexWrap: 'wrap',
+  },
+  speedButton: {
+    minWidth: 34,
+    height: 26,
+    padding: theme.spacing(0, 0.75),
+    borderRadius: 8,
+    fontSize: '0.65rem',
+    fontWeight: 700,
+    lineHeight: 1,
+    color: theme.palette.text.secondary,
+    background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+    boxShadow: 'none',
+    '&:hover': {
+      background: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(21,101,192,0.08)',
+      boxShadow: 'none',
+    },
+  },
+  speedButtonActive: {
+    color: '#fff',
+    background: theme.palette.mode === 'dark'
+      ? 'linear-gradient(135deg, #1565c0 0%, #1976d2 100%)'
+      : 'linear-gradient(135deg, #1565c0 0%, #42a5f5 100%)',
+    boxShadow: '0 2px 8px rgba(21,101,192,0.28)',
+    '&:hover': {
+      background: 'linear-gradient(135deg, #0d47a1 0%, #1565c0 100%)',
+      boxShadow: '0 2px 8px rgba(21,101,192,0.28)',
+    },
+  },
   liveCard: {
     borderRadius: 12,
     padding: theme.spacing(1.25),
@@ -231,11 +270,512 @@ const useStyles = makeStyles()((theme) => ({
   },
 }));
 
+const lerp = (from, to, t) => from + (to - from) * t;
+
+const lerpAngle = (fromDeg, toDeg, t) => {
+  const from = ((fromDeg % 360) + 360) % 360;
+  const to = ((toDeg % 360) + 360) % 360;
+  let diff = to - from;
+  if (diff > 180) {
+    diff -= 360;
+  } else if (diff < -180) {
+    diff += 360;
+  }
+  return ((from + diff * t) + 360) % 360;
+};
+
+const toRad = (deg) => (deg * Math.PI) / 180;
+const toDeg = (rad) => (rad * 180) / Math.PI;
+const EARTH_M = 6371000;
+const STATIONARY_SPEED = 0.5;
+const PARK_SNAP_M = 55;
+const SPIKE_NEIGHBOR_M = 28;
+const SPIKE_OFFSET_M = 42;
+const UI_SYNC_MS = 180;
+const HEADING_SMOOTH_MS = 140;
+
+const distanceMeters = (lat1, lng1, lat2, lng2) => {
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const dφ = toRad(lat2 - lat1);
+  const dλ = toRad(lng2 - lng1);
+  const s = Math.sin(dφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) ** 2;
+  return 2 * EARTH_M * Math.asin(Math.min(1, Math.sqrt(s)));
+};
+
+const isStationary = (position) => {
+  if (position?.attributes?.motion === false) {
+    return true;
+  }
+  return (position?.speed || 0) <= STATIONARY_SPEED;
+};
+
+const bearingBetweenCoords = (lat1, lng1, lat2, lng2) => {
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δλ = toRad(lng2 - lng1);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
+};
+
+const catmullRom2D = (p0, p1, p2, p3, t, alpha = 0.5) => {
+  const getT = (ti, a, b) => {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    return ti + (dx * dx + dy * dy) ** (alpha * 0.5);
+  };
+  const lerpPt = (a, b, ta, tb, tv) => {
+    const span = tb - ta;
+    const f = Math.abs(span) < 1e-12 ? 0 : (tv - ta) / span;
+    return { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+  };
+  const t0 = 0;
+  const t1 = Math.max(t0 + 1e-6, getT(t0, p0, p1));
+  const t2 = Math.max(t1 + 1e-6, getT(t1, p1, p2));
+  const t3 = Math.max(t2 + 1e-6, getT(t2, p2, p3));
+  const tv = t1 + (t2 - t1) * t;
+  const a1 = lerpPt(p0, p1, t0, t1, tv);
+  const a2 = lerpPt(p1, p2, t1, t2, tv);
+  const a3 = lerpPt(p2, p3, t2, t3, tv);
+  const b1 = lerpPt(a1, a2, t0, t2, tv);
+  const b2 = lerpPt(a2, a3, t1, t3, tv);
+  return lerpPt(b1, b2, t1, t2, tv);
+};
+
+const prepareSmoothTrack = (positions) => {
+  const n = positions.length;
+  const lats = positions.map((position) => position.latitude);
+  const lngs = positions.map((position) => position.longitude);
+  if (n === 0) {
+    return { lats, lngs };
+  }
+
+  for (let i = 1; i < n - 1; i += 1) {
+    const neighbor = distanceMeters(lats[i - 1], lngs[i - 1], lats[i + 1], lngs[i + 1]);
+    const prev = distanceMeters(lats[i - 1], lngs[i - 1], lats[i], lngs[i]);
+    const next = distanceMeters(lats[i], lngs[i], lats[i + 1], lngs[i + 1]);
+    if (prev > SPIKE_OFFSET_M && next > SPIKE_OFFSET_M && neighbor < SPIKE_NEIGHBOR_M) {
+      lats[i] = (lats[i - 1] + lats[i + 1]) / 2;
+      lngs[i] = (lngs[i - 1] + lngs[i + 1]) / 2;
+    }
+  }
+
+  let i = 0;
+  while (i < n) {
+    if (!isStationary(positions[i])) {
+      i += 1;
+      continue;
+    }
+    let j = i;
+    while (j + 1 < n && isStationary(positions[j + 1])) {
+      j += 1;
+    }
+    let minLat = lats[i];
+    let maxLat = lats[i];
+    let minLng = lngs[i];
+    let maxLng = lngs[i];
+    let sumLat = 0;
+    let sumLng = 0;
+    for (let k = i; k <= j; k += 1) {
+      minLat = Math.min(minLat, lats[k]);
+      maxLat = Math.max(maxLat, lats[k]);
+      minLng = Math.min(minLng, lngs[k]);
+      maxLng = Math.max(maxLng, lngs[k]);
+      sumLat += lats[k];
+      sumLng += lngs[k];
+    }
+    if (distanceMeters(minLat, minLng, maxLat, maxLng) <= PARK_SNAP_M) {
+      const clat = sumLat / (j - i + 1);
+      const clng = sumLng / (j - i + 1);
+      for (let k = i; k <= j; k += 1) {
+        lats[k] = clat;
+        lngs[k] = clng;
+      }
+    }
+    i = j + 1;
+  }
+
+  return { lats, lngs };
+};
+
+const pathPoint = (path, index, lngScale) => ({
+  x: path.lngs[index] * lngScale,
+  y: path.lats[index],
+});
+
+const samplePath = (path, index, t, lngScale) => {
+  const last = path.lats.length - 1;
+  const i0 = Math.max(0, index - 1);
+  const i1 = index;
+  const i2 = Math.min(last, index + 1);
+  const i3 = Math.min(last, index + 2);
+  const point = catmullRom2D(
+    pathPoint(path, i0, lngScale),
+    pathPoint(path, i1, lngScale),
+    pathPoint(path, i2, lngScale),
+    pathPoint(path, i3, lngScale),
+    t,
+  );
+  return {
+    latitude: point.y,
+    longitude: lngScale === 0 ? path.lngs[i1] : point.x / lngScale,
+  };
+};
+
+const findSegmentIndex = (times, time) => {
+  const last = times.length - 1;
+  if (time <= times[0]) {
+    return 0;
+  }
+  if (time >= times[last]) {
+    return Math.max(0, last - 1);
+  }
+  let lo = 0;
+  let hi = last - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] <= time && time <= times[mid + 1]) {
+      return mid;
+    }
+    if (times[mid] < time) {
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return Math.max(0, Math.min(last - 1, lo));
+};
+
+const interpolatePosition = (positions, times, path, time) => {
+  const last = positions.length - 1;
+  if (last < 0 || !path?.lats?.length) {
+    return { position: null, fromIndex: 0, atEnd: true };
+  }
+  const lngScale = Math.max(Math.cos(toRad(path.lats[0] || 0)), 0.2);
+  if (last === 0 || time <= times[0]) {
+    return {
+      position: {
+        ...positions[0],
+        latitude: path.lats[0],
+        longitude: path.lngs[0],
+      },
+      fromIndex: 0,
+      atEnd: false,
+    };
+  }
+  if (time >= times[last]) {
+    return {
+      position: {
+        ...positions[last],
+        latitude: path.lats[last],
+        longitude: path.lngs[last],
+      },
+      fromIndex: last,
+      atEnd: true,
+    };
+  }
+  const i = findSegmentIndex(times, time);
+  const span = times[i + 1] - times[i];
+  const t = span > 0 ? Math.min(1, Math.max(0, (time - times[i]) / span)) : 1;
+  const from = positions[i];
+  const to = positions[i + 1];
+  const sampled = samplePath(path, i, t, lngScale);
+  const look = t < 0.97 ? samplePath(path, i, Math.min(1, t + 0.05), lngScale) : samplePath(path, i, Math.max(0, t - 0.05), lngScale);
+  const moved = distanceMeters(sampled.latitude, sampled.longitude, look.latitude, look.longitude);
+  let course = Number.isFinite(from.course) ? from.course : (to.course || 0);
+  if (moved > 0.25) {
+    course = t < 0.97
+      ? bearingBetweenCoords(sampled.latitude, sampled.longitude, look.latitude, look.longitude)
+      : bearingBetweenCoords(look.latitude, look.longitude, sampled.latitude, sampled.longitude);
+  }
+  return {
+    position: {
+      ...from,
+      latitude: sampled.latitude,
+      longitude: sampled.longitude,
+      course,
+      speed: lerp(from.speed || 0, to.speed || 0, t),
+      altitude: lerp(from.altitude || 0, to.altitude || 0, t),
+      fixTime: new Date(time).toISOString(),
+    },
+    fromIndex: i,
+    atEnd: false,
+  };
+};
+
+const SEEK_STEP_MS = 10000;
+const PLAYBACK_SPEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 16, 32, 64];
+
+const ReplayVehicleLayer = ({
+  positions,
+  times,
+  playing,
+  playbackRate,
+  seekNonce,
+  seekIndex,
+  seekTime,
+  playbackTimeRef,
+  onSegmentChange,
+  onEnded,
+  onMarkerClick,
+}) => {
+  const id = useId();
+  const theme = useTheme();
+  const desktop = useMediaQuery(theme.breakpoints.up('md'));
+  const iconScale = useAttributePreference('iconScale', desktop ? 0.75 : 1);
+  const devices = useSelector((state) => state.devices.items);
+  const smoothPath = useMemo(() => prepareSmoothTrack(positions), [positions]);
+
+  const timeRef = useRef(times[0] || 0);
+  const lastFrameRef = useRef(null);
+  const rafRef = useRef(null);
+  const segmentRef = useRef(0);
+  const seekIndexRef = useRef(seekIndex);
+  const positionsRef = useRef(positions);
+  const timesRef = useRef(times);
+  const pathRef = useRef(smoothPath);
+  const rateRef = useRef(playbackRate);
+  const onSegmentChangeRef = useRef(onSegmentChange);
+  const onEndedRef = useRef(onEnded);
+  const seekTimeRef = useRef(seekTime);
+  const devicesRef = useRef(devices);
+  const onMarkerClickRef = useRef(onMarkerClick);
+  const displayRef = useRef({ latitude: null, longitude: null, course: null });
+  const lastUiSyncRef = useRef(0);
+  const geojsonRef = useRef({
+    type: 'FeatureCollection',
+    features: [{
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [0, 0] },
+      properties: {
+        id: 0,
+        deviceId: 0,
+        category: 'default',
+        color: 'neutral',
+        title: '',
+      },
+    }],
+  });
+
+  seekIndexRef.current = seekIndex;
+  positionsRef.current = positions;
+  timesRef.current = times;
+  pathRef.current = smoothPath;
+  rateRef.current = playbackRate;
+  onSegmentChangeRef.current = onSegmentChange;
+  onEndedRef.current = onEnded;
+  seekTimeRef.current = seekTime;
+  devicesRef.current = devices;
+  onMarkerClickRef.current = onMarkerClick;
+
+  const writeMarker = useCallback((position, dt, snap) => {
+    const source = map.getSource(id);
+    if (!position) {
+      source?.setData({ type: 'FeatureCollection', features: [] });
+      displayRef.current = { latitude: null, longitude: null, course: null };
+      return;
+    }
+    const device = devicesRef.current[position.deviceId];
+    if (!device) {
+      return;
+    }
+    let { latitude, longitude, course } = position;
+    const prev = displayRef.current;
+    const rate = rateRef.current || 1;
+    if (!snap && prev.latitude != null && Number.isFinite(dt) && dt > 0) {
+      const headingAlpha = 1 - Math.exp(-dt / HEADING_SMOOTH_MS);
+      course = lerpAngle(prev.course ?? course, course || 0, headingAlpha);
+      if (rate <= 8) {
+        const posAlpha = 1 - Math.exp(-dt / Math.max(28, 80 / Math.sqrt(rate)));
+        latitude = lerp(prev.latitude, latitude, posAlpha);
+        longitude = lerp(prev.longitude, longitude, posAlpha);
+      }
+    }
+    displayRef.current = { latitude, longitude, course: course || 0 };
+    const collection = geojsonRef.current;
+    const feature = collection.features[0];
+    feature.geometry.coordinates[0] = longitude;
+    feature.geometry.coordinates[1] = latitude;
+    feature.properties.id = position.id;
+    feature.properties.deviceId = position.deviceId;
+    feature.properties.category = mapIconKey(device.category);
+    feature.properties.color = 'neutral';
+    feature.properties.title = formatTime(position.fixTime, 'seconds');
+    source?.setData(collection);
+  }, [id]);
+
+  const syncIndex = useCallback((fromIndex, force) => {
+    segmentRef.current = fromIndex;
+    const now = performance.now();
+    if (!force && now - lastUiSyncRef.current < UI_SYNC_MS) {
+      return;
+    }
+    lastUiSyncRef.current = now;
+    startTransition(() => {
+      onSegmentChangeRef.current?.(fromIndex);
+    });
+  }, []);
+
+  const applyTime = useCallback((time, notifySegment, snap, dt) => {
+    const pts = positionsRef.current;
+    const ts = timesRef.current;
+    const path = pathRef.current;
+    if (!pts.length) {
+      writeMarker(null, dt, true);
+      return true;
+    }
+    const { position, fromIndex, atEnd } = interpolatePosition(pts, ts, path, time);
+    writeMarker(position, dt, snap);
+    if (playbackTimeRef) {
+      playbackTimeRef.current = time;
+    }
+    if (notifySegment && fromIndex !== segmentRef.current) {
+      syncIndex(fromIndex, false);
+    } else if (notifySegment) {
+      segmentRef.current = fromIndex;
+    }
+    return atEnd;
+  }, [playbackTimeRef, syncIndex, writeMarker]);
+
+  useEffect(() => {
+    map.addSource(id, {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: [],
+      },
+    });
+    map.addLayer({
+      id,
+      type: 'symbol',
+      source: id,
+      layout: {
+        'icon-image': '{category}-{color}',
+        'icon-size': iconScale,
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'text-field': '{title}',
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+        'text-anchor': 'bottom',
+        'text-offset': [0, -2 * iconScale],
+        'text-font': findFonts(map),
+        'text-size': 12,
+      },
+      paint: {
+        'text-halo-color': 'white',
+        'text-halo-width': 2,
+      },
+    });
+    const onMouseEnter = () => {
+      map.getCanvas().style.cursor = 'pointer';
+    };
+    const onMouseLeave = () => {
+      map.getCanvas().style.cursor = '';
+    };
+    const onClick = (event) => {
+      event.preventDefault();
+      const feature = event.features?.[0];
+      if (feature && onMarkerClickRef.current) {
+        onMarkerClickRef.current(feature.properties.id, feature.properties.deviceId);
+      }
+    };
+    map.on('mouseenter', id, onMouseEnter);
+    map.on('mouseleave', id, onMouseLeave);
+    map.on('click', id, onClick);
+    return () => {
+      map.off('mouseenter', id, onMouseEnter);
+      map.off('mouseleave', id, onMouseLeave);
+      map.off('click', id, onClick);
+      if (map.getLayer(id)) {
+        map.removeLayer(id);
+      }
+      if (map.getSource(id)) {
+        map.removeSource(id);
+      }
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (map.getLayer(id)) {
+      map.setLayoutProperty(id, 'icon-size', iconScale);
+      map.setLayoutProperty(id, 'text-offset', [0, -2 * iconScale]);
+    }
+  }, [id, iconScale]);
+
+  useEffect(() => {
+    if (!times.length) {
+      writeMarker(null, 0, true);
+      return;
+    }
+    const i = Math.max(0, Math.min(seekIndexRef.current, times.length - 1));
+    const explicit = seekTimeRef.current;
+    timeRef.current = Number.isFinite(explicit)
+      ? Math.max(times[0], Math.min(times[times.length - 1], explicit))
+      : times[i];
+    segmentRef.current = findSegmentIndex(times, timeRef.current);
+    displayRef.current = { latitude: null, longitude: null, course: null };
+    applyTime(timeRef.current, false, true, 0);
+  }, [seekNonce, positions, times, applyTime, writeMarker]);
+
+  const wasPlayingRef = useRef(false);
+
+  useEffect(() => {
+    if (!playing || times.length < 2) {
+      lastFrameRef.current = null;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      if (wasPlayingRef.current) {
+        syncIndex(segmentRef.current, true);
+      }
+      wasPlayingRef.current = false;
+      return undefined;
+    }
+
+    wasPlayingRef.current = true;
+
+    const tick = (now) => {
+      if (lastFrameRef.current == null) {
+        lastFrameRef.current = now;
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      const dt = Math.min(now - lastFrameRef.current, 48);
+      lastFrameRef.current = now;
+      const ts = timesRef.current;
+      const endTime = ts[ts.length - 1];
+      timeRef.current = Math.min(endTime, timeRef.current + dt * rateRef.current);
+      const atEnd = applyTime(timeRef.current, true, false, dt);
+      if (atEnd || timeRef.current >= endTime) {
+        timeRef.current = endTime;
+        applyTime(endTime, true, true, dt);
+        syncIndex(Math.max(0, ts.length - 1), true);
+        onEndedRef.current?.();
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      lastFrameRef.current = null;
+    };
+  }, [playing, times.length, applyTime, syncIndex]);
+
+  return null;
+};
+
 const ReplayPage = () => {
   const t = useTranslation();
   const { classes } = useStyles();
   const navigate = useNavigate();
-  const timerRef = useRef();
 
   const speedUnit = useAttributePreference('speedUnit');
   const distanceUnit = useAttributePreference('distanceUnit');
@@ -253,6 +793,10 @@ const ReplayPage = () => {
   const to = searchParams.get('to');
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [seekNonce, setSeekNonce] = useState(0);
+  const [seekTime, setSeekTime] = useState(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const playbackTimeRef = useRef(0);
 
   const loaded = Boolean(from && to && !loading && positions.length);
 
@@ -272,30 +816,54 @@ const ReplayPage = () => {
     }
   }, [from, to, setPositions]);
 
-  useEffect(() => {
-    if (playing && positions.length > 0) {
-      timerRef.current = setInterval(() => {
-        setIndex((index) => index + 1);
-      }, 500);
-    } else {
-      clearInterval(timerRef.current);
-    }
-    return () => clearInterval(timerRef.current);
-  }, [playing, positions]);
-
-  useEffect(() => {
-    if (index >= positions.length - 1) {
-      clearInterval(timerRef.current);
-      setPlaying(false);
-    }
-  }, [index, positions]);
-
-  const onPointClick = useCallback(
-    (_, index) => {
-      setIndex(index);
-    },
-    [setIndex],
+  const times = useMemo(
+    () => positions.map((position) => new Date(position.fixTime).getTime()),
+    [positions],
   );
+
+  const sliderMarks = useMemo(() => {
+    const n = positions.length;
+    if (n <= 2) {
+      return [];
+    }
+    const maxMarks = 48;
+    const step = Math.max(1, Math.ceil((n - 1) / maxMarks));
+    const marks = [];
+    for (let i = 0; i < n; i += step) {
+      marks.push({ value: i });
+    }
+    if (marks[marks.length - 1].value !== n - 1) {
+      marks.push({ value: n - 1 });
+    }
+    return marks;
+  }, [positions.length]);
+
+  const seekToIndex = useCallback((nextIndex) => {
+    const i = Math.max(0, Math.min(nextIndex, Math.max(times.length - 1, 0)));
+    setIndex(i);
+    setSeekTime(times[i] ?? null);
+    setSeekNonce((nonce) => nonce + 1);
+  }, [times]);
+
+  const seekBySeconds = useCallback((deltaSeconds) => {
+    if (!times.length) {
+      return;
+    }
+    const start = times[0];
+    const end = times[times.length - 1];
+    const current = Number.isFinite(playbackTimeRef.current)
+      ? playbackTimeRef.current
+      : (times[Math.max(0, Math.min(index, times.length - 1))] ?? start);
+    const next = Math.max(start, Math.min(end, current + deltaSeconds * 1000));
+    const nextIndex = next >= end ? times.length - 1 : findSegmentIndex(times, next);
+    setIndex(nextIndex);
+    setSeekTime(next);
+    setSeekNonce((nonce) => nonce + 1);
+  }, [times, index]);
+
+  const onPointClick = useCallback((_, nextIndex) => {
+    seekToIndex(nextIndex);
+  }, [seekToIndex]);
 
   const onMarkerClick = useCallback(
     (positionId) => {
@@ -311,7 +879,10 @@ const ReplayPage = () => {
     const query = new URLSearchParams({ deviceId, from, to });
     try {
       const response = await fetchOrThrow(`/api/positions?${query.toString()}`);
+      setPlaying(false);
       setIndex(0);
+      setSeekTime(null);
+      setSeekNonce((nonce) => nonce + 1);
       const positions = await response.json();
       setPositions(positions);
       if (!positions.length) {
@@ -405,11 +976,22 @@ const ReplayPage = () => {
         <MapGeofence />
         <MapRoutePath positions={positions} />
         <MapRoutePoints positions={positions} onClick={onPointClick} showSpeedControl />
-        {index < positions.length && (
-          <MapPositions
-            positions={[positions[index]]}
+        {positions.length > 0 && (
+          <ReplayVehicleLayer
+            positions={positions}
+            times={times}
+            playing={playing}
+            playbackRate={playbackSpeed}
+            seekNonce={seekNonce}
+            seekIndex={index}
+            seekTime={seekTime}
+            playbackTimeRef={playbackTimeRef}
+            onSegmentChange={setIndex}
+            onEnded={() => {
+              setPlaying(false);
+              setIndex((current) => (positions.length ? positions.length - 1 : current));
+            }}
             onMarkerClick={onMarkerClick}
-            titleField="fixTime"
           />
         )}
       </MapView>
@@ -502,10 +1084,10 @@ const ReplayPage = () => {
                 <Slider
                   size="small"
                   max={positions.length - 1}
-                  step={null}
-                  marks={positions.map((_, i) => ({ value: i }))}
+                  step={1}
+                  marks={sliderMarks}
                   value={index}
-                  onChange={(_, val) => setIndex(val)}
+                  onChange={(_, val) => seekToIndex(val)}
                   sx={{
                     '& .MuiSlider-track': {
                       background: 'linear-gradient(90deg, #1565c0, #42a5f5)',
@@ -527,7 +1109,7 @@ const ReplayPage = () => {
                     <span>
                       <IconButton
                         size="small"
-                        onClick={() => setIndex(0)}
+                        onClick={() => seekToIndex(0)}
                         disabled={playing || index <= 0}
                       >
                         <SkipPreviousIcon fontSize="small" />
@@ -538,7 +1120,7 @@ const ReplayPage = () => {
                     <span>
                       <IconButton
                         size="small"
-                        onClick={() => setIndex((i) => i - 1)}
+                        onClick={() => seekBySeconds(-10)}
                         disabled={playing || index <= 0}
                       >
                         <FastRewindIcon fontSize="small" />
@@ -556,7 +1138,7 @@ const ReplayPage = () => {
                     <span>
                       <IconButton
                         size="small"
-                        onClick={() => setIndex((i) => i + 1)}
+                        onClick={() => seekBySeconds(10)}
                         disabled={playing || index >= positions.length - 1}
                       >
                         <FastForwardIcon fontSize="small" />
@@ -567,13 +1149,27 @@ const ReplayPage = () => {
                     <span>
                       <IconButton
                         size="small"
-                        onClick={() => setIndex(positions.length - 1)}
+                        onClick={() => seekToIndex(positions.length - 1)}
                         disabled={playing || index >= positions.length - 1}
                       >
                         <SkipNextIcon fontSize="small" />
                       </IconButton>
                     </span>
                   </Tooltip>
+                </Box>
+                <Box className={classes.speedRow}>
+                  <SpeedIcon sx={{ fontSize: 14, color: 'text.secondary', mr: 0.25 }} />
+                  {PLAYBACK_SPEEDS.map((speed) => (
+                    <Button
+                      key={speed}
+                      size="small"
+                      className={`${classes.speedButton} ${playbackSpeed === speed ? classes.speedButtonActive : ''}`}
+                      onClick={() => setPlaybackSpeed(speed)}
+                      aria-pressed={playbackSpeed === speed}
+                    >
+                      {`${speed}x`}
+                    </Button>
+                  ))}
                 </Box>
                 <Box className={classes.timeRow}>
                   <Typography className={classes.timeText}>

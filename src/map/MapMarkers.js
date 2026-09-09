@@ -67,6 +67,15 @@ const MapMarkers = ({ markers, showTitles }) => {
   }, [showTitles]);
 
   useEffect(() => {
+    if (map.getLayer(id)) {
+      map.setLayoutProperty(id, 'icon-size', iconScale);
+      if (showTitles) {
+        map.setLayoutProperty(id, 'text-offset', [0, -2 * iconScale]);
+      }
+    }
+  }, [id, showTitles, iconScale]);
+
+  useEffect(() => {
     map.getSource(id)?.setData({
       type: 'FeatureCollection',
       features: markers.map(({ latitude, longitude, image, title }) => ({

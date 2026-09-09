@@ -60,6 +60,7 @@ export const mapIconKey = (category) => {
     case 'pickup':
       return 'car';
     case 'trolleybus':
+    case 'minibus':
       return 'bus';
     default:
       return mapIcons.hasOwnProperty(category) ? category : 'default';
@@ -71,6 +72,7 @@ export const mapImages = {};
 const theme = createTheme({
   palette: {
     neutral: { main: grey[500] },
+    alwaysDark: { main: '#111111' },
   },
 });
 
@@ -81,7 +83,7 @@ export default async () => {
   await Promise.all(
     Object.keys(mapIcons).map(async (category) => {
       const results = [];
-      ['info', 'success', 'error', 'neutral'].forEach((color) => {
+      ['info', 'success', 'warning', 'error', 'neutral', 'alwaysDark'].forEach((color) => {
         results.push(
           loadImage(mapIcons[category]).then((icon) => {
             mapImages[`${category}-${color}`] = prepareIcon(

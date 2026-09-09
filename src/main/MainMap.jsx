@@ -18,6 +18,7 @@ import MapGeocoder from '../map/geocoder/MapGeocoder';
 import MapScale from '../map/MapScale';
 import MapNotification from '../map/notification/MapNotification';
 import MapGoToRoute from '../map/MapGoToRoute';
+import MapStatusLegend from '../map/legend/MapStatusLegend';
 import useFeatures from '../common/util/useFeatures';
 
 const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, goToRoute, statusCardMinimized }) => {
@@ -39,24 +40,27 @@ const MainMap = ({ filteredPositions, selectedPosition, onEventsClick, goToRoute
 
   return (
     <>
-      <MapView>
-        <MapOverlay />
-        <MapGeofence />
-        <MapAccuracy positions={filteredPositions} />
-        <MapLiveRoutes deviceIds={filteredPositions.map((p) => p.deviceId)} />
-        <MapPositions
-          positions={filteredPositions}
-          onMarkerClick={onMarkerClick}
-          selectedPosition={selectedPosition}
-          showStatus
-        />
-        {goToRoute && (
-          <MapGoToRoute coordinates={goToRoute.coordinates} origin={goToRoute.origin} />
-        )}
-        <MapDefaultCamera />
-        <MapSelectedDevice skipFollow={Boolean(goToRoute)} />
-        <PoiMap />
-      </MapView>
+      <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <MapView>
+          <MapOverlay />
+          <MapGeofence />
+          <MapAccuracy positions={filteredPositions} />
+          <MapLiveRoutes deviceIds={filteredPositions.map((p) => p.deviceId)} />
+          <MapPositions
+            positions={filteredPositions}
+            onMarkerClick={onMarkerClick}
+            selectedPosition={selectedPosition}
+            showStatus
+          />
+          {goToRoute && (
+            <MapGoToRoute coordinates={goToRoute.coordinates} origin={goToRoute.origin} />
+          )}
+          <MapDefaultCamera />
+          <MapSelectedDevice skipFollow={Boolean(goToRoute)} />
+          <PoiMap />
+        </MapView>
+        <MapStatusLegend />
+      </div>
       <MapScale />
       <MapCurrentLocation />
       <MapGeocoder />

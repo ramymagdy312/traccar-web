@@ -32,7 +32,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { useAttributePreference } from '../common/util/preferences';
-import { formatSpeed, formatStatus } from '../common/util/formatter';
+import { formatSpeed, formatStatus, getDeviceIconColor } from '../common/util/formatter';
 import { mapIconKey, mapIcons } from '../map/core/preloadImages';
 import { devicesActions } from '../store';
 
@@ -813,11 +813,16 @@ const Dashboard = ({ onFilterMap }) => {
             const pos = positions[d.id];
             const speed = pos?.speed || 0;
             const connectionStatus = d.status || 'unknown';
-            const statusColor = connectionStatus === 'online'
-              ? dash.online
-              : connectionStatus === 'offline'
-                ? dash.offline
-                : dash.unknown;
+            const iconColorKey = getDeviceIconColor(d, pos);
+            const paletteColor = theme.palette[iconColorKey]?.main;
+            const statusColor = iconColorKey === 'alwaysDark' && theme.palette.mode === 'dark'
+              ? theme.palette.grey[200]
+              : paletteColor
+                || (connectionStatus === 'online'
+                  ? dash.online
+                  : connectionStatus === 'offline'
+                    ? dash.offline
+                    : dash.unknown);
             const showLastSeen = connectionStatus !== 'online' && d.lastUpdate;
             const categoryIconUrl = mapIcons[mapIconKey(d.category)];
             return (

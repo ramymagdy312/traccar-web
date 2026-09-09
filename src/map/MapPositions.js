@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux';
 import { useMediaQuery } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { map } from './core/MapView';
-import { formatTime, getStatusColor } from '../common/util/formatter';
+import { formatTime, getDeviceIconColor } from '../common/util/formatter';
 import { mapIconKey } from './core/preloadImages';
 import { useAttributePreference } from '../common/util/preferences';
 import { useCatchCallback } from '../reactHelper';
@@ -51,7 +51,7 @@ const MapPositions = ({
       name: device.name,
       fixTime: formatTime(position.fixTime, 'seconds'),
       category: mapIconKey(device.category),
-      color: showStatus ? position.attributes.color || getStatusColor(device.status) : 'neutral',
+      color: showStatus ? getDeviceIconColor(device, position) : 'neutral',
       rotation: position.course,
       direction: showDirection,
     };
@@ -201,6 +201,21 @@ const MapPositions = ({
       });
     };
   }, [mapCluster, clusters, onMarkerClickCallback, onClusterClick]);
+
+  useEffect(() => {
+    [id, selected].forEach((source) => {
+      if (map.getLayer(source)) {
+        map.setLayoutProperty(source, 'icon-size', iconScale);
+        map.setLayoutProperty(source, 'text-offset', [0, -2 * iconScale]);
+      }
+      if (map.getLayer(`direction-${source}`)) {
+        map.setLayoutProperty(`direction-${source}`, 'icon-size', iconScale);
+      }
+    });
+    if (map.getLayer(clusters)) {
+      map.setLayoutProperty(clusters, 'icon-size', iconScale);
+    }
+  }, [id, selected, clusters, iconScale]);
 
   useEffect(() => {
     [id, selected].forEach((source) => {

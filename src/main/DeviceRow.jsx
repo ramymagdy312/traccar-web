@@ -26,6 +26,7 @@ import {
   formatPercentage,
   formatStatus,
   getStatusColor,
+  getDeviceIconColor,
 } from '../common/util/formatter';
 import { useTranslation } from '../common/components/LocalizationProvider';
 import { mapIconKey, mapIcons } from '../map/core/preloadImages';
@@ -43,6 +44,7 @@ const useStyles = makeStyles()((theme) => ({
   icon: {
     width: '25px',
     height: '25px',
+    objectFit: 'contain',
     filter: 'brightness(0) invert(1)',
   },
   batteryText: {
@@ -58,6 +60,9 @@ const useStyles = makeStyles()((theme) => ({
   },
   error: {
     color: theme.palette.error.main,
+  },
+  info: {
+    color: theme.palette.info.main,
   },
   neutral: {
     color: theme.palette.neutral.main,
@@ -133,7 +138,13 @@ const DeviceRow = ({ devices, index, style }) => {
         className={selectedDeviceId === item.id ? classes.selected : null}
       >
         <ListItemAvatar>
-          <Avatar>
+          <Avatar
+            sx={{
+              background: (muiTheme) => muiTheme.palette[getDeviceIconColor(item, position)]?.main
+                || muiTheme.palette.neutral.main,
+              boxShadow: 'none',
+            }}
+          >
             <img className={classes.icon} src={mapIcons[mapIconKey(item.category)]} alt="" />
           </Avatar>
         </ListItemAvatar>

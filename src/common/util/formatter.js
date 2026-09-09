@@ -150,6 +150,32 @@ export const getStatusColor = (status) => {
   }
 };
 
+const ICON_COLOR_KEYS = new Set(['info', 'success', 'error', 'neutral', 'warning', 'alwaysDark']);
+
+export const getDeviceIconColor = (device, position) => {
+  const custom = position?.attributes?.color;
+  if (typeof custom === 'string' && ICON_COLOR_KEYS.has(custom)) {
+    return custom;
+  }
+
+  const status = device?.status;
+  if (status === 'offline') {
+    return 'error';
+  }
+  if (status !== 'online') {
+    return 'neutral';
+  }
+
+  const moving = Boolean(position?.attributes?.motion) || (position?.speed || 0) > 0;
+  if (moving) {
+    return 'success';
+  }
+  if (position?.attributes?.ignition === true) {
+    return 'warning';
+  }
+  return 'alwaysDark';
+};
+
 export const getBatteryStatus = (batteryLevel) => {
   if (batteryLevel >= 70) {
     return 'success';

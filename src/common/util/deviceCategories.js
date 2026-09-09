@@ -16,6 +16,7 @@ export default [
   'trailer',
   'train',
   'tram',
+  'trolleybus',
   'truck',
   'van',
   'scooter',
